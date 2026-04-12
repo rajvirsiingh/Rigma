@@ -1,0 +1,12 @@
+.canvasContainer{
+    padding: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.canvas{
+    background-color: #ffffff;
+    height: 500px;
+    width: 900px;
+    cursor: crosshair;
+}

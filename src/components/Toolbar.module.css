@@ -1,0 +1,18 @@
+.toolbar{
+    padding: 25px;
+    cursor: pointer;
+}
+ul{
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    padding: 12px;
+    border: 2px solid black;
+    border-radius: 30px;
+    background-color: #fff;
+    width: 25%;
+}
+.icon img{
+    width: 30px;
+    height: auto;
+}
