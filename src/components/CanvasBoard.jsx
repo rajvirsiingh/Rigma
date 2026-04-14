@@ -2,6 +2,8 @@ import style from "./Canvas.module.css";
 import ShapeRenderer from "./ShapeRenderer";
 import { useState } from "react";
 import PreviewShapes from "./PreviewShapes";
+import { useEffect } from "react";
+
 const CanvasBoard = ({ mode }) => {
   const [hoverDimensions, setHoverDimensions] = useState(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -261,6 +263,28 @@ const CanvasBoard = ({ mode }) => {
     setResizeCorner(corner);
     setDragStart({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   };
+  useEffect(() => {
+  const handleKeyDown = (e) => {
+    // Only delete if a shape is selected
+    if (selectedShapeIndex === null) return;
+
+    if (e.key === "Delete" || e.key === "Backspace") {
+      e.preventDefault(); // prevents browser going back (important)
+
+      setShapes((prev) =>
+        prev.filter((_, i) => i !== selectedShapeIndex)
+      );
+
+      setSelectedShapeIndex(null);
+    }
+  };
+
+  window.addEventListener("keydown", handleKeyDown);
+
+  return () => {
+    window.removeEventListener("keydown", handleKeyDown);
+  };
+}, [selectedShapeIndex]);
 
   return (
     <section className={style.canvasContainer}>
@@ -281,14 +305,14 @@ const CanvasBoard = ({ mode }) => {
           />
         ))}
         <PreviewShapes
-  rectStart={rectStart}
-  rectCurrent={rectCurrent}
-  lineStart={lineStart}
-  lineCurrent={lineCurrent}
-  circleStart={circleStart}
-  circleCurrent={circleCurrent}
-  points={points}
-/>
+          rectStart={rectStart}
+          rectCurrent={rectCurrent}
+          lineStart={lineStart}
+          lineCurrent={lineCurrent}
+          circleStart={circleStart}
+          circleCurrent={circleCurrent}
+          points={points}
+        />
 
         {hoverDimensions && (
           <text x={hoverDimensions.x} y={hoverDimensions.y} fontSize="12">
