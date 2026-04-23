@@ -5,6 +5,7 @@ const PreviewShapes = ({
   lineCurrent,
   circleStart,
   circleCurrent,
+  shiftPressed,
   points,
 }) => {
   return (
@@ -46,12 +47,21 @@ const PreviewShapes = ({
       {circleStart && circleCurrent && (() => {
         const dx = circleCurrent.x - circleStart.x;
         const dy = circleCurrent.y - circleStart.y;
-        const r = Math.sqrt(dx * dx + dy * dy);
+        const size = shiftPressed ? Math.max(Math.abs(dx), Math.abs(dy)) : null;
+        const currentX = shiftPressed ? circleStart.x + Math.sign(dx || 1) * size : circleCurrent.x;
+        const currentY = shiftPressed ? circleStart.y + Math.sign(dy || 1) * size : circleCurrent.y;
+        const left = Math.min(circleStart.x, currentX);
+        const top = Math.min(circleStart.y, currentY);
+        const width = Math.abs(currentX - circleStart.x);
+        const height = Math.abs(currentY - circleStart.y);
+        const cx = left + width / 2;
+        const cy = top + height / 2;
         return (
-          <circle
-            cx={circleStart.x}
-            cy={circleStart.y}
-            r={r}
+          <ellipse
+            cx={cx}
+            cy={cy}
+            rx={width / 2}
+            ry={height / 2}
             fill="transparent"
             stroke="red"
             strokeWidth="2"

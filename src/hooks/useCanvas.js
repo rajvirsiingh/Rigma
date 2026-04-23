@@ -26,6 +26,7 @@ const useCanvas = (mode) => {
   const [isResizing, setIsResizing] = useState(false);
   const [resizeCorner, setResizeCorner] = useState(null);
   const [altPressed, setAltPressed] = useState(false);
+  const [shiftPressed, setShiftPressed] = useState(false);
   const [hoveredShapeIndex, setHoveredShapeIndex] = useState(null);
   
   const [shapes, setShapes] = useState([]);
@@ -79,7 +80,7 @@ const useCanvas = (mode) => {
 
   const handleCanvasMouseDownCapture = (e) => {
     if (mode !== "select") return;
-    if (e.target.tagName === 'circle') return; // Ignore resize handles
+    if (e.target.tagName?.toLowerCase() === 'circle') return; // Ignore resize handles
     const { x, y } = getCoords(e);
     const hitShapeIndex = getShapeAtPoint(shapes, x, y);
 
@@ -155,11 +156,20 @@ const useCanvas = (mode) => {
       });
     } else if (mode === "circle" && drawingState.circle.start) {
       const start = drawingState.circle.start;
-      const width = Math.abs(x - start.x);
-      const height = Math.abs(y - start.y);
+      let currentX = x;
+      let currentY = y;
+      if (shiftPressed) {
+        const dx = x - start.x;
+        const dy = y - start.y;
+        const size = Math.max(Math.abs(dx), Math.abs(dy));
+        currentX = start.x + Math.sign(dx || 1) * size;
+        currentY = start.y + Math.sign(dy || 1) * size;
+      }
+      const width = Math.abs(currentX - start.x);
+      const height = Math.abs(currentY - start.y);
       setHoverDimensions({
-        x: Math.min(start.x, x),
-        y: Math.min(start.y, y) - 10,
+        x: Math.min(start.x, currentX),
+        y: Math.min(start.y, currentY) - 10,
         width: Math.round(width),
         height: Math.round(height),
       });
@@ -210,10 +220,20 @@ const useCanvas = (mode) => {
       saveToHistory([...shapes, newShape]);
       setDrawingState(prev => ({ ...prev, line: { start: null, current: null } }));
     } else if (mode === "circle" && ds.circle.start && ds.circle.current) {
-      const left = Math.min(ds.circle.start.x, ds.circle.current.x);
-      const top = Math.min(ds.circle.start.y, ds.circle.current.y);
-      const width = Math.abs(ds.circle.current.x - ds.circle.start.x);
-      const height = Math.abs(ds.circle.current.y - ds.circle.start.y);
+      const start = ds.circle.start;
+      let currentX = ds.circle.current.x;
+      let currentY = ds.circle.current.y;
+      if (shiftPressed) {
+        const dx = currentX - start.x;
+        const dy = currentY - start.y;
+        const size = Math.max(Math.abs(dx), Math.abs(dy));
+        currentX = start.x + Math.sign(dx || 1) * size;
+        currentY = start.y + Math.sign(dy || 1) * size;
+      }
+      const left = Math.min(start.x, currentX);
+      const top = Math.min(start.y, currentY);
+      const width = Math.abs(currentX - start.x);
+      const height = Math.abs(currentY - start.y);
       const newShape = {
         type: "circle",
         name: getDefaultShapeName('circle', shapes),
@@ -307,6 +327,9 @@ const useCanvas = (mode) => {
       if (e.key === 'Alt') {
         setAltPressed(true);
       }
+      if (e.key === 'Shift') {
+        setShiftPressed(true);
+      }
 
       if (selectedShapeIndex !== null) {
         const moveAmount = 5;
@@ -345,6 +368,9 @@ const useCanvas = (mode) => {
     const handleKeyUp = (e) => {
       if (e.key === 'Alt') {
         setAltPressed(false);
+      }
+      if (e.key === 'Shift') {
+        setShiftPressed(false);
       }
     };
 
@@ -396,6 +422,7 @@ const useCanvas = (mode) => {
     moveShapeForward,
     moveShapeBackward,
     altPressed,
+    shiftPressed,
     hoveredShapeIndex,
     setHoveredShapeIndex,
   };

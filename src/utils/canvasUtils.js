@@ -23,11 +23,12 @@ export const updateShapeForDrag = (shape, dx, dy) => {
     };
   }
   if (shape.type === "circle") {
-    return {
-      ...shape,
-      center: { x: shape.center.x + dx, y: shape.center.y + dy },
-      edge: { x: shape.edge.x + dx, y: shape.edge.y + dy },
-    };
+    const center = shape.center ?? { x: shape.edge?.x ?? 0, y: shape.edge?.y ?? 0 };
+    const moved = { ...shape, center: { x: center.x + dx, y: center.y + dy } };
+    if (shape.edge) {
+      moved.edge = { x: shape.edge.x + dx, y: shape.edge.y + dy };
+    }
+    return moved;
   }
   return shape;
 };

@@ -22,7 +22,7 @@ const ShapeControls = ({ selectedShape, onShapeUpdate }) => {
     if (selectedShape) {
       const baseProperties = {
         strokeColor: selectedShape.strokeColor || '#000000',
-        fillColor: selectedShape.fillColor || 'transparent',
+        fillColor: selectedShape.fillColor && selectedShape.fillColor !== 'transparent' && selectedShape.fillColor !== 'none' ? selectedShape.fillColor : '#ffffff',
         strokeWidth: selectedShape.strokeWidth || 2,
         borderRadius: selectedShape.borderRadius || {
           tl: 0,

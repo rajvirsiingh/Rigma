@@ -16,6 +16,7 @@ const CanvasBoard = ({
   handleSelect,
   handleResizeStart,
   altPressed,
+  shiftPressed,
   hoveredShapeIndex,
   setHoveredShapeIndex,
 }) => {
@@ -144,6 +145,7 @@ const CanvasBoard = ({
           lineCurrent={drawingState.line.current}
           circleStart={drawingState.circle.start}
           circleCurrent={drawingState.circle.current}
+          shiftPressed={shiftPressed}
           points={drawingState.pen.points}
         />
 

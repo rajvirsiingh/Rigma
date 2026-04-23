@@ -18,7 +18,7 @@ function App() {
   return (
     <div className="app">
       <div className="toolbar-container">
-        <Toolbar onModeChange={handleModeChange}/>
+        <Toolbar onModeChange={handleModeChange} mode={mode} />
       </div>
       <div className="main-content">
         <ShapeSidebar
