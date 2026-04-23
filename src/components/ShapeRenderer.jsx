@@ -3,12 +3,14 @@ import Line from "./shapes/Line";
 import Circle from "./shapes/Circle";
 import Pen from "./shapes/Pen";
 
-const ShapeRenderer = ({ shape, i, selectedShapeIndex, handleSelect, handleResizeStart }) => {
+const ShapeRenderer = ({ shape, i, selectedShapeIndex, handleSelect, handleResizeStart, setHoveredShapeIndex }) => {
   const commonProps = {
     shape,
     isSelected: selectedShapeIndex === i,
     onMouseDown: (e) => handleSelect(e, i),
     onResizeStart: (e, corner) => handleResizeStart(e, i, corner),
+    onMouseEnter: () => setHoveredShapeIndex(i),
+    onMouseLeave: () => setHoveredShapeIndex(null),
   };
 
   switch (shape.type) {

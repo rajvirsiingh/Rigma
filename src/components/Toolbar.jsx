@@ -6,27 +6,31 @@ import circle from "../assets/circle-icon.png"
 import styles from './Toolbar.module.css'
 import line from '../assets/line-icon.png'
 
-const Toolbar = ({setMode}) => {
+const Toolbar = ({onModeChange}) => {
+  const handleModeChange = (newMode) => {
+    if (onModeChange) {
+      onModeChange(newMode);
+    }
+  };
+
   return (
     <section className={styles.toolbar}>
         
         <ul className='icon-list'>
-             <li className={styles.icon} onClick={()=>setMode('select')}>
+             <li className={styles.icon} onClick={()=>handleModeChange('select')}>
                 Select
             </li>
-            <li className={styles.icon} onClick={()=>setMode('pen')}>
+            <li className={styles.icon} onClick={()=>handleModeChange('pen')}>
                 <img src={pen} alt="pen icon" />
             </li>
-            <li className={styles.icon} onClick={()=>setMode('line')}>
+            <li className={styles.icon} onClick={()=>handleModeChange('line')}>
                 <img src={line} alt="line icon"/>
             </li>
-            <li className={styles.icon} onClick={()=>setMode('rect')}>
+            <li className={styles.icon} onClick={()=>handleModeChange('rect')}>
                 <img src={square} alt="square icon" />
             </li>
-            <li className={styles.icon} onClick={()=>setMode('rect')}>
-                <img src={roundedSquare} alt="Rounded Square Icon" />
-            </li>
-            <li className={styles.icon} onClick={()=>setMode('circle')}>
+           
+            <li className={styles.icon} onClick={()=>handleModeChange('circle')}>
                 <img src={circle} alt="Circle Icon" />
             </li>
             

@@ -1,0 +1,92 @@
+.sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background-color: #1f1f1f;
+  border: 1px solid #2a2a2a;
+  border-radius: 12px;
+}
+
+.header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #ffffff;
+}
+
+.header p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #9a9a9a;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 10px;
+  background-color: #262626;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.item:hover {
+  border-color: #3c3c3c;
+}
+
+.active {
+  border-color: #007acc;
+  background-color: #2a2a2a;
+}
+
+.nameRow {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.nameInput {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background-color: #1b1b1b;
+  border: 1px solid #3c3c3c;
+  color: #f3f3f3;
+}
+
+.typeLabel {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7f7f7f;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+}
+
+.actionButton {
+  padding: 7px 12px;
+  border: none;
+  border-radius: 8px;
+  background-color: #0e639c;
+  color: white;
+  cursor: pointer;
+}
+
+.actionButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}

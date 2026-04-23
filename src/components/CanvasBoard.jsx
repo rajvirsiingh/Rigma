@@ -1,307 +1,127 @@
 import style from "./Canvas.module.css";
 import ShapeRenderer from "./ShapeRenderer";
-import { useState, useCallback } from "react";
 import PreviewShapes from "./PreviewShapes";
-import { useEffect } from "react";
+import { getBounds } from "../utils/canvasUtils";
+import { useRef } from "react";
 
-const CanvasBoard = ({ mode }) => {
-  const [hoverDimensions, setHoverDimensions] = useState(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+const CanvasBoard = ({
+  shapes,
+  hoverDimensions,
+  selectedShapeIndex,
+  drawingState,
+  handleMouseDown,
+  handleMouseMove,
+  handleMouseUp,
+  handleCanvasMouseDownCapture,
+  handleSelect,
+  handleResizeStart,
+  altPressed,
+  hoveredShapeIndex,
+  setHoveredShapeIndex,
+}) => {
+  const svgRef = useRef();
 
-  // Consolidated drawing state
-  const [drawingState, setDrawingState] = useState({
-    pen: { points: [] },
-    rect: { start: null, current: null },
-    line: { start: null, current: null },
-    circle: { start: null, current: null },
-  });
+  const renderDistanceGuides = () => {
+    if (!altPressed || selectedShapeIndex === null) return null;
 
-  const [selectedShapeIndex, setSelectedShapeIndex] = useState(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState(null);
-  const [isResizing, setIsResizing] = useState(false);
-  const [resizeCorner, setResizeCorner] = useState(null);
-  
-  const [shapes, setShapes] = useState([]);
-  const [history, setHistory] = useState([[]]);
-  const [step, setStep] = useState(0);
+    const svg = svgRef.current;
+    if (!svg) return null;
 
-  const saveToHistory = useCallback((newShapes) => {
-    const updatedHistory = history.slice(0, step + 1);
-    setHistory([...updatedHistory, newShapes]);
-    setStep(step + 1);
-    setShapes(newShapes);
-  }, [history, step]);
+    const boardRect = svg.getBoundingClientRect();
+    const boardWidth = boardRect.width;
+    const boardHeight = boardRect.height;
 
-  const undo = useCallback(() => {
-    if (step > 0) {
-      const newStep = step - 1;
-      setStep(newStep);
-      setShapes(history[newStep]);
-    }
-  }, [step, history]);
+    const selectedShape = shapes[selectedShapeIndex];
+    const selectedBounds = getBounds(selectedShape);
 
-  const redo = useCallback(() => {
-    if (step < history.length - 1) {
-      const newStep = step + 1;
-      setStep(newStep);
-      setShapes(history[newStep]);
-    }
-  }, [step, history]);
+    const guides = [];
 
-  const getCoords = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const touch = e.touches?.[0] || e;
-    return {
-      x: touch.clientX - rect.left,
-      y: touch.clientY - rect.top,
-    };
-  };
+    // Distance from left edge to shape left
+    guides.push(
+      <line key="left" x1={0} y1={selectedBounds.top} x2={selectedBounds.left} y2={selectedBounds.top} stroke="red" strokeWidth={1} />,
+      <text key="left-text" x={selectedBounds.left / 2} y={selectedBounds.top - 5} textAnchor="middle" fontSize="12" fill="red">
+        {Math.round(selectedBounds.left)}
+      </text>
+    );
 
-  const updateShapeForDrag = (shape, dx, dy) => {
-    if (shape.type === "rectangle") {
-      return {
-        ...shape,
-        start: { x: shape.start.x + dx, y: shape.start.y + dy },
-        end: { x: shape.end.x + dx, y: shape.end.y + dy },
-      };
-    }
-    if (shape.type === "line") {
-      return {
-        ...shape,
-        start: { x: shape.start.x + dx, y: shape.start.y + dy },
-        end: { x: shape.end.x + dx, y: shape.end.y + dy },
-      };
-    }
-    if (shape.type === "circle") {
-      return {
-        ...shape,
-        center: { x: shape.center.x + dx, y: shape.center.y + dy },
-        edge: { x: shape.edge.x + dx, y: shape.edge.y + dy },
-      };
-    }
-    return shape;
-  };
+    // Distance from top edge to shape top
+    guides.push(
+      <line key="top" x1={selectedBounds.left} y1={0} x2={selectedBounds.left} y2={selectedBounds.top} stroke="red" strokeWidth={1} />,
+      <text key="top-text" x={selectedBounds.left - 5} y={selectedBounds.top / 2} textAnchor="end" fontSize="12" fill="red">
+        {Math.round(selectedBounds.top)}
+      </text>
+    );
 
-  const updateShapeForResize = (shape, x, y, resizeCorner) => {
-    if (shape.type === "rectangle") {
-      let { start, end } = shape;
-      if (resizeCorner === 0) start = { x, y };
-      else if (resizeCorner === 1) { start.y = y; end.x = x; }
-      else if (resizeCorner === 2) { start.x = x; end.y = y; }
-      else if (resizeCorner === 3) end = { x, y };
-      return { ...shape, start, end };
-    }
-    if (shape.type === "line") {
-      const start = resizeCorner === 0 ? { x, y } : shape.start;
-      const end = resizeCorner === 1 ? { x, y } : shape.end;
-      return { ...shape, start, end };
-    }
-    if (shape.type === "circle") {
-      const center = shape.center;
-      const edge = { x, y };
-      return { ...shape, edge };
-    }
-    return shape;
-  };
+    // Distance from right edge to shape right
+    guides.push(
+      <line key="right" x1={selectedBounds.right} y1={selectedBounds.top} x2={boardWidth} y2={selectedBounds.top} stroke="red" strokeWidth={1} />,
+      <text key="right-text" x={(selectedBounds.right + boardWidth) / 2} y={selectedBounds.top - 5} textAnchor="middle" fontSize="12" fill="red">
+        {Math.round(boardWidth - selectedBounds.right)}
+      </text>
+    );
 
-  const calculateHoverDimensions = (shape) => {
-    if (shape.type === "rectangle") {
-      const { start, end } = shape;
-      return {
-        x: Math.min(start.x, end.x),
-        y: Math.min(start.y, end.y) - 10,
-        width: Math.abs(end.x - start.x),
-        height: Math.abs(end.y - start.y),
-      };
-    }
-    if (shape.type === "line") {
-      const { start, end } = shape;
-      const dx = end.x - start.x;
-      const dy = end.y - start.y;
-      const length = Math.sqrt(dx * dx + dy * dy);
-      return {
-        x: (start.x + end.x) / 2,
-        y: (start.y + end.y) / 2 - 10,
-        width: Math.round(length),
-        height: null,
-      };
-    }
-    if (shape.type === "circle") {
-      const { center, edge } = shape;
-      const dx = edge.x - center.x;
-      const dy = edge.y - center.y;
-      const r = Math.sqrt(dx * dx + dy * dy);
-      return {
-        x: center.x,
-        y: center.y - r - 10,
-        width: Math.round(r * 2),
-        height: Math.round(r * 2),
-      };
-    }
-    return null;
-  };
+    // Distance from bottom edge to shape bottom
+    guides.push(
+      <line key="bottom" x1={selectedBounds.left} y1={selectedBounds.bottom} x2={selectedBounds.left} y2={boardHeight} stroke="red" strokeWidth={1} />,
+      <text key="bottom-text" x={selectedBounds.left - 5} y={(selectedBounds.bottom + boardHeight) / 2} textAnchor="end" fontSize="12" fill="red">
+        {Math.round(boardHeight - selectedBounds.bottom)}
+      </text>
+    );
 
-  const handleMouseDown = (e) => {
-    const { x, y } = getCoords(e);
-    setIsDrawing(true);
-    setDrawingState(prev => ({
-      ...prev,
-      [mode]: mode === "pen" ? { points: [{ x, y }] } : { start: { x, y }, current: { x, y } },
-    }));
-  };
+    // If hovering another shape, show distances between shapes
+    if (hoveredShapeIndex !== null && hoveredShapeIndex !== selectedShapeIndex) {
+      const hoveredShape = shapes[hoveredShapeIndex];
+      const hoveredBounds = getBounds(hoveredShape);
 
-  const handleMouseMove = (e) => {
-    const { x, y } = getCoords(e);
+      const selectedCenterY = (selectedBounds.top + selectedBounds.bottom) / 2;
+      const hoveredCenterY = (hoveredBounds.top + hoveredBounds.bottom) / 2;
+      const selectedCenterX = (selectedBounds.left + selectedBounds.right) / 2;
+      const hoveredCenterX = (hoveredBounds.left + hoveredBounds.right) / 2;
 
-    if (mode === "select" && (isDragging || isResizing) && dragStart) {
-      const dx = x - dragStart.x;
-      const dy = y - dragStart.y;
-      setShapes(prev =>
-        prev.map((shape, i) =>
-          i !== selectedShapeIndex
-            ? shape
-            : isResizing
-            ? updateShapeForResize(shape, x, y, resizeCorner)
-            : updateShapeForDrag(shape, dx, dy)
-        )
-      );
-      if (isResizing) {
-        const updatedShape = shapes[selectedShapeIndex];
-        if (updatedShape) setHoverDimensions(calculateHoverDimensions(updatedShape));
-      }
-      setDragStart({ x, y });
-      return;
-    }
-
-    if (!isDrawing) return;
-
-    setDrawingState(prev => {
-      const newState = { ...prev };
-      if (mode === "pen") {
-        newState.pen.points = [...newState.pen.points, { x, y }];
-      } else {
-        newState[mode].current = { x, y };
-      }
-      return newState;
-    });
-
-    // Update hover dimensions for drawing
-    if (mode === "line" && drawingState.line.start) {
-      const start = drawingState.line.start;
-      const dx = x - start.x;
-      const dy = y - start.y;
-      const length = Math.sqrt(dx * dx + dy * dy);
-      setHoverDimensions({
-        x: (start.x + x) / 2,
-        y: (start.y + y) / 2 - 10,
-        width: Math.round(length),
-        height: null,
-      });
-    } else if (mode === "rect" && drawingState.rect.start) {
-      const start = drawingState.rect.start;
-      setHoverDimensions({
-        x: Math.min(start.x, x),
-        y: Math.min(start.y, y) - 10,
-        width: Math.abs(x - start.x),
-        height: Math.abs(y - start.y),
-      });
-    } else if (mode === "circle" && drawingState.circle.start) {
-      const start = drawingState.circle.start;
-      const dx = x - start.x;
-      const dy = y - start.y;
-      const r = Math.sqrt(dx * dx + dy * dy);
-      setHoverDimensions({
-        x: start.x,
-        y: start.y - r - 10,
-        width: Math.round(r * 2),
-        height: Math.round(r * 2),
-      });
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDrawing(false);
-    setIsDragging(false);
-    setIsResizing(false);
-    setHoverDimensions(null);
-
-    const ds = drawingState;
-    if (mode === "pen" && ds.pen.points.length) {
-      saveToHistory([...shapes, { type: "pen", points: ds.pen.points }]);
-      setDrawingState(prev => ({ ...prev, pen: { points: [] } }));
-    } else if (mode === "rect" && ds.rect.start && ds.rect.current) {
-      saveToHistory([...shapes, { type: "rectangle", start: ds.rect.start, end: ds.rect.current }]);
-      setDrawingState(prev => ({ ...prev, rect: { start: null, current: null } }));
-    } else if (mode === "line" && ds.line.start && ds.line.current) {
-      saveToHistory([...shapes, { type: "line", start: ds.line.start, end: ds.line.current }]);
-      setDrawingState(prev => ({ ...prev, line: { start: null, current: null } }));
-    } else if (mode === "circle" && ds.circle.start && ds.circle.current) {
-      saveToHistory([...shapes, { type: "circle", center: ds.circle.start, edge: ds.circle.current }]);
-      setDrawingState(prev => ({ ...prev, circle: { start: null, current: null } }));
-    }
-
-    if (mode === "select" && (isDragging || isResizing)) {
-      saveToHistory(shapes);
-    }
-  };
-
-  const handleSelect = (e, i) => {
-    if (mode !== "select") return;
-    e.stopPropagation();
-    const rect = e.currentTarget.ownerSVGElement.getBoundingClientRect();
-    setSelectedShapeIndex(i);
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  };
-
-  const handleResizeStart = (e, i, corner) => {
-    if (mode !== "select") return;
-    e.stopPropagation();
-    const rect = e.currentTarget.ownerSVGElement.getBoundingClientRect();
-    setSelectedShapeIndex(i);
-    setIsResizing(true);
-    setResizeCorner(corner);
-    setDragStart({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-  };
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.ctrlKey || e.metaKey)) {
-        if (e.key === 'z' && !e.shiftKey) {
-          e.preventDefault();
-          undo();
-          return;
-        } else if (e.key === 'y' || (e.key === 'z' && e.shiftKey)) {
-          e.preventDefault();
-          redo();
-          return;
-        }
+      // Horizontal distance
+      if (selectedBounds.right < hoveredBounds.left) {
+        guides.push(
+          <line key="shape-h" x1={selectedBounds.right} y1={selectedCenterY} x2={hoveredBounds.left} y2={selectedCenterY} stroke="blue" strokeWidth={1} />,
+          <text key="shape-h-text" x={(selectedBounds.right + hoveredBounds.left) / 2} y={selectedCenterY - 5} textAnchor="middle" fontSize="12" fill="blue">
+            {Math.round(hoveredBounds.left - selectedBounds.right)}
+          </text>
+        );
+      } else if (selectedBounds.left > hoveredBounds.right) {
+        guides.push(
+          <line key="shape-h" x1={hoveredBounds.right} y1={selectedCenterY} x2={selectedBounds.left} y2={selectedCenterY} stroke="blue" strokeWidth={1} />,
+          <text key="shape-h-text" x={(hoveredBounds.right + selectedBounds.left) / 2} y={selectedCenterY - 5} textAnchor="middle" fontSize="12" fill="blue">
+            {Math.round(selectedBounds.left - hoveredBounds.right)}
+          </text>
+        );
       }
 
-      // Only delete if a shape is selected
-      if (selectedShapeIndex === null) return;
-
-      if (e.key === "Delete" || e.key === "Backspace") {
-        e.preventDefault(); // prevents browser going back (important)
-
-        const newShapes = shapes.filter((_, i) => i !== selectedShapeIndex);
-        setShapes(newShapes);
-        saveToHistory(newShapes);
-        setSelectedShapeIndex(null);
+      // Vertical distance
+      if (selectedBounds.bottom < hoveredBounds.top) {
+        guides.push(
+          <line key="shape-v" x1={selectedCenterX} y1={selectedBounds.bottom} x2={selectedCenterX} y2={hoveredBounds.top} stroke="blue" strokeWidth={1} />,
+          <text key="shape-v-text" x={selectedCenterX + 5} y={(selectedBounds.bottom + hoveredBounds.top) / 2} textAnchor="start" fontSize="12" fill="blue">
+            {Math.round(hoveredBounds.top - selectedBounds.bottom)}
+          </text>
+        );
+      } else if (selectedBounds.top > hoveredBounds.bottom) {
+        guides.push(
+          <line key="shape-v" x1={selectedCenterX} y1={hoveredBounds.bottom} x2={selectedCenterX} y2={selectedBounds.top} stroke="blue" strokeWidth={1} />,
+          <text key="shape-v-text" x={selectedCenterX + 5} y={(hoveredBounds.bottom + selectedBounds.top) / 2} textAnchor="start" fontSize="12" fill="blue">
+            {Math.round(selectedBounds.top - hoveredBounds.bottom)}
+          </text>
+        );
       }
-    };
+    }
 
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [selectedShapeIndex, shapes, undo, redo, saveToHistory]);
+    return guides;
+  };
 
   return (
     <section className={style.canvasContainer}>
       <svg
+        ref={svgRef}
         className={style.canvas}
+        onMouseDownCapture={handleCanvasMouseDownCapture}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -314,6 +134,7 @@ const CanvasBoard = ({ mode }) => {
             selectedShapeIndex={selectedShapeIndex}
             handleSelect={handleSelect}
             handleResizeStart={handleResizeStart}
+            setHoveredShapeIndex={setHoveredShapeIndex}
           />
         ))}
         <PreviewShapes
@@ -333,9 +154,11 @@ const CanvasBoard = ({ mode }) => {
               : `${hoverDimensions.width}px`}
           </text>
         )}
+
+        {renderDistanceGuides()}
       </svg>
     </section>
   );
 };
 
-export default CanvasBoard;
+export default CanvasBoard
