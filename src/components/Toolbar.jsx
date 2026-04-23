@@ -14,29 +14,61 @@ const Toolbar = ({onModeChange}) => {
   };
 
   return (
-    <section className={styles.toolbar}>
-        
-        <ul className='icon-list'>
-             <li className={styles.icon} onClick={()=>handleModeChange('select')}>
-                Select
-            </li>
-            <li className={styles.icon} onClick={()=>handleModeChange('pen')}>
-                <img src={pen} alt="pen icon" />
-            </li>
-            <li className={styles.icon} onClick={()=>handleModeChange('line')}>
-                <img src={line} alt="line icon"/>
-            </li>
-            <li className={styles.icon} onClick={()=>handleModeChange('rect')}>
-                <img src={square} alt="square icon" />
-            </li>
-           
-            <li className={styles.icon} onClick={()=>handleModeChange('circle')}>
-                <img src={circle} alt="Circle Icon" />
-            </li>
-            
-        </ul>
+    <section className={styles.toolbar} role="toolbar" aria-label="Drawing tools">
+      <ul className="icon-list">
+        <li>
+          <button
+            type="button"
+            className={styles.icon}
+            onClick={() => handleModeChange('select')}
+            aria-label="Select tool"
+          >
+            Select
+          </button>
+        </li>
+        <li>
+          <button
+            type="button"
+            className={styles.icon}
+            onClick={() => handleModeChange('pen')}
+            aria-label="Pen tool"
+          >
+            <img src={pen} alt="Pen tool" />
+          </button>
+        </li>
+        <li>
+          <button
+            type="button"
+            className={styles.icon}
+            onClick={() => handleModeChange('line')}
+            aria-label="Line tool"
+          >
+            <img src={line} alt="Line tool" />
+          </button>
+        </li>
+        <li>
+          <button
+            type="button"
+            className={styles.icon}
+            onClick={() => handleModeChange('rect')}
+            aria-label="Rectangle tool"
+          >
+            <img src={square} alt="Rectangle tool" />
+          </button>
+        </li>
+        <li>
+          <button
+            type="button"
+            className={styles.icon}
+            onClick={() => handleModeChange('circle')}
+            aria-label="Circle tool"
+          >
+            <img src={circle} alt="Circle tool" />
+          </button>
+        </li>
+      </ul>
     </section>
-  )
+  );
 }
 
 export default Toolbar

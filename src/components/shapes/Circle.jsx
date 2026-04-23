@@ -1,19 +1,23 @@
 import SelectionOutline from '../SelectionOutline';
 
 const Circle = ({ shape, isSelected, onMouseDown, onResizeStart, onMouseEnter, onMouseLeave }) => {
-  const { center, edge, strokeColor = '#000000', fillColor = 'transparent', strokeWidth = 2 } = shape;
-  const dx = edge.x - center.x;
-  const dy = edge.y - center.y;
-  const r = Math.sqrt(dx * dx + dy * dy);
-
+  const { center, radiusX = 0, radiusY = 0, strokeColor = '#000000', fillColor = 'transparent', strokeWidth = 2 } = shape;
   const pointerEvents = fillColor === 'transparent' || fillColor === 'none' ? 'stroke' : 'all';
+
+  const handles = [
+    { x: center.x + radiusX, y: center.y, cursor: 'e-resize', corner: 0 },
+    { x: center.x, y: center.y - radiusY, cursor: 'n-resize', corner: 1 },
+    { x: center.x - radiusX, y: center.y, cursor: 'w-resize', corner: 2 },
+    { x: center.x, y: center.y + radiusY, cursor: 's-resize', corner: 3 },
+  ];
 
   return (
     <>
-      <circle
+      <ellipse
         cx={center.x}
         cy={center.y}
-        r={r}
+        rx={radiusX}
+        ry={radiusY}
         stroke={strokeColor}
         fill={fillColor}
         strokeWidth={strokeWidth}
@@ -26,22 +30,25 @@ const Circle = ({ shape, isSelected, onMouseDown, onResizeStart, onMouseEnter, o
       {isSelected && (
         <>
           <SelectionOutline
-            x={center.x - r}
-            y={center.y - r}
-            width={r * 2}
-            height={r * 2}
+            x={center.x - radiusX}
+            y={center.y - radiusY}
+            width={radiusX * 2}
+            height={radiusY * 2}
             color={strokeColor}
           />
-          <circle
-            cx={edge.x}
-            cy={edge.y}
-            r={5}
-            fill="white"
-            stroke="blue"
-            strokeWidth={2}
-            style={{ cursor: 'nwse-resize' }}
-            onMouseDown={(e) => onResizeStart(e, 0)}
-          />
+          {handles.map((handle) => (
+            <circle
+              key={handle.corner}
+              cx={handle.x}
+              cy={handle.y}
+              r={5}
+              fill="white"
+              stroke="blue"
+              strokeWidth={2}
+              style={{ cursor: handle.cursor }}
+              onMouseDown={(e) => onResizeStart(e, handle.corner)}
+            />
+          ))}
         </>
       )}
     </>

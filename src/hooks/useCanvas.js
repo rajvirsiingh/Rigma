@@ -155,14 +155,13 @@ const useCanvas = (mode) => {
       });
     } else if (mode === "circle" && drawingState.circle.start) {
       const start = drawingState.circle.start;
-      const dx = x - start.x;
-      const dy = y - start.y;
-      const r = Math.sqrt(dx * dx + dy * dy);
+      const width = Math.abs(x - start.x);
+      const height = Math.abs(y - start.y);
       setHoverDimensions({
-        x: start.x,
-        y: start.y - r - 10,
-        width: Math.round(r * 2),
-        height: Math.round(r * 2),
+        x: Math.min(start.x, x),
+        y: Math.min(start.y, y) - 10,
+        width: Math.round(width),
+        height: Math.round(height),
       });
     }
   };
@@ -211,11 +210,16 @@ const useCanvas = (mode) => {
       saveToHistory([...shapes, newShape]);
       setDrawingState(prev => ({ ...prev, line: { start: null, current: null } }));
     } else if (mode === "circle" && ds.circle.start && ds.circle.current) {
+      const left = Math.min(ds.circle.start.x, ds.circle.current.x);
+      const top = Math.min(ds.circle.start.y, ds.circle.current.y);
+      const width = Math.abs(ds.circle.current.x - ds.circle.start.x);
+      const height = Math.abs(ds.circle.current.y - ds.circle.start.y);
       const newShape = {
         type: "circle",
         name: getDefaultShapeName('circle', shapes),
-        center: ds.circle.start,
-        edge: ds.circle.current,
+        center: { x: left + width / 2, y: top + height / 2 },
+        radiusX: width / 2,
+        radiusY: height / 2,
         strokeColor: '#000000',
         fillColor: '#d3d3d3',
         strokeWidth: 0,

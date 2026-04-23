@@ -73,9 +73,9 @@ export const updateShapeForResize = (shape, x, y, resizeCorner) => {
     return { ...shape, start, end };
   }
   if (shape.type === "circle") {
-    const center = shape.center;
-    const edge = { x, y };
-    return { ...shape, edge };
+    const radiusX = Math.max(0, Math.abs(x - shape.center.x));
+    const radiusY = Math.max(0, Math.abs(y - shape.center.y));
+    return { ...shape, radiusX, radiusY };
   }
   return shape;
 };
@@ -89,10 +89,9 @@ export const getBounds = (shape) => {
     return { left, top, right, bottom };
   }
   if (shape.type === "circle") {
-    const dx = shape.edge.x - shape.center.x;
-    const dy = shape.edge.y - shape.center.y;
-    const r = Math.sqrt(dx * dx + dy * dy);
-    return { left: shape.center.x - r, top: shape.center.y - r, right: shape.center.x + r, bottom: shape.center.y + r };
+    const rx = shape.radiusX ?? Math.abs(shape.edge?.x - shape.center.x);
+    const ry = shape.radiusY ?? Math.abs(shape.edge?.y - shape.center.y);
+    return { left: shape.center.x - rx, top: shape.center.y - ry, right: shape.center.x + rx, bottom: shape.center.y + ry };
   }
   if (shape.type === "line") {
     const left = Math.min(shape.start.x, shape.end.x);
@@ -136,15 +135,13 @@ export const calculateHoverDimensions = (shape) => {
     };
   }
   if (shape.type === "circle") {
-    const { center, edge } = shape;
-    const dx = edge.x - center.x;
-    const dy = edge.y - center.y;
-    const r = Math.sqrt(dx * dx + dy * dy);
+    const rx = shape.radiusX ?? Math.abs(shape.edge?.x - shape.center.x);
+    const ry = shape.radiusY ?? Math.abs(shape.edge?.y - shape.center.y);
     return {
-      x: center.x,
-      y: center.y - r - 10,
-      width: Math.round(r * 2),
-      height: Math.round(r * 2),
+      x: shape.center.x - rx,
+      y: shape.center.y - ry - 10,
+      width: Math.round(rx * 2),
+      height: Math.round(ry * 2),
     };
   }
   return null;
@@ -203,13 +200,17 @@ export const getShapeAtPoint = (shapes, x, y) => {
         if (nearEdge) return i;
       }
     } else if (shape.type === 'circle') {
-      const { center, edge, strokeWidth = 0 } = shape;
+      const { center, strokeWidth = 0 } = shape;
+      const rx = shape.radiusX ?? Math.abs(shape.edge?.x - center.x);
+      const ry = shape.radiusY ?? Math.abs(shape.edge?.y - center.y);
       const dx = x - center.x;
       const dy = y - center.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      const r = Math.sqrt((edge.x - center.x) ** 2 + (edge.y - center.y) ** 2);
-      if (hasVisibleFill(shape) && distance <= r) return i;
-      if (!hasVisibleFill(shape) && Math.abs(distance - r) <= strokeWidth / 2) return i;
+      const ellipseEquation = (dx * dx) / (rx * rx || 1) + (dy * dy) / (ry * ry || 1);
+      if (hasVisibleFill(shape) && ellipseEquation <= 1) return i;
+      if (!hasVisibleFill(shape)) {
+        const threshold = strokeWidth / Math.max(rx, ry, 1);
+        if (Math.abs(ellipseEquation - 1) <= threshold) return i;
+      }
     } else if (shape.type === 'line') {
       const { start, end, strokeWidth = 0 } = shape;
       if (getDistanceToLine(x, y, start.x, start.y, end.x, end.y) <= strokeWidth / 2) return i;

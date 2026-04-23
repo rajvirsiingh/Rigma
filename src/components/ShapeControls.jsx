@@ -14,6 +14,8 @@ const ShapeControls = ({ selectedShape, onShapeUpdate }) => {
     },
     width: 0,
     height: 0,
+    radiusX: 0,
+    radiusY: 0,
   });
 
   useEffect(() => {
@@ -33,7 +35,11 @@ const ShapeControls = ({ selectedShape, onShapeUpdate }) => {
       if (selectedShape.type === 'rectangle') {
         const width = Math.abs(selectedShape.end.x - selectedShape.start.x);
         const height = Math.abs(selectedShape.end.y - selectedShape.start.y);
-        setProperties({ ...baseProperties, width, height });
+        setProperties({ ...baseProperties, width, height, radiusX: 0, radiusY: 0 });
+      } else if (selectedShape.type === 'circle') {
+        const radiusX = selectedShape.radiusX ?? Math.abs((selectedShape.edge?.x ?? selectedShape.center.x) - selectedShape.center.x);
+        const radiusY = selectedShape.radiusY ?? Math.abs((selectedShape.edge?.y ?? selectedShape.center.y) - selectedShape.center.y);
+        setProperties({ ...baseProperties, radiusX, radiusY, width: radiusX * 2, height: radiusY * 2 });
       } else {
         setProperties(baseProperties);
       }
@@ -54,6 +60,10 @@ const ShapeControls = ({ selectedShape, onShapeUpdate }) => {
       };
     } else if (property === 'width' || property === 'height') {
       updatedProperties = { ...properties, [property]: value };
+    } else if (property === 'radiusX') {
+      updatedProperties = { ...properties, radiusX: value, width: value * 2 };
+    } else if (property === 'radiusY') {
+      updatedProperties = { ...properties, radiusY: value, height: value * 2 };
     } else {
       updatedProperties = { ...properties, [property]: value };
     }
@@ -82,6 +92,11 @@ const ShapeControls = ({ selectedShape, onShapeUpdate }) => {
         }
 
         updatedShape = { ...updatedShape, start: newStart, end: newEnd };
+      } else if (selectedShape.type === 'circle' && (property === 'radiusX' || property === 'radiusY')) {
+        updatedShape = {
+          ...updatedShape,
+          [property]: value,
+        };
       }
 
       onShapeUpdate(updatedShape);
@@ -158,6 +173,34 @@ const ShapeControls = ({ selectedShape, onShapeUpdate }) => {
                 min="0"
                 value={properties.height}
                 onChange={(e) => handlePropertyChange('height', parseInt(e.target.value) || 0)}
+              />
+            </label>
+          </div>
+        </>
+      )}
+
+      {selectedShape.type === 'circle' && (
+        <>
+          <div className={styles.propertyGroup}>
+            <label>
+              Radius X:
+              <input
+                type="number"
+                min="0"
+                value={properties.radiusX}
+                onChange={(e) => handlePropertyChange('radiusX', parseInt(e.target.value) || 0)}
+              />
+            </label>
+          </div>
+
+          <div className={styles.propertyGroup}>
+            <label>
+              Radius Y:
+              <input
+                type="number"
+                min="0"
+                value={properties.radiusY}
+                onChange={(e) => handlePropertyChange('radiusY', parseInt(e.target.value) || 0)}
               />
             </label>
           </div>

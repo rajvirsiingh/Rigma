@@ -21,7 +21,15 @@ const ShapeSidebar = ({
           <div
             key={shape.id ?? `${shape.type}-${index}`}
             className={`${styles.item} ${selectedShapeIndex === index ? styles.active : ''}`}
+            role="button"
+            tabIndex={0}
             onClick={() => onSelectShape(index)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onSelectShape(index);
+              }
+            }}
           >
             <div className={styles.nameRow}>
               <input
