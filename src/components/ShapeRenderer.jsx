@@ -3,10 +3,10 @@ import Line from "./shapes/Line";
 import Circle from "./shapes/Circle";
 import Pen from "./shapes/Pen";
 
-const ShapeRenderer = ({ shape, i, selectedShapeIndex, handleSelect, handleResizeStart, setHoveredShapeIndex }) => {
+const ShapeRenderer = ({ shape, i, selectedShapeIndices, handleSelect, handleResizeStart, setHoveredShapeIndex }) => {
   const commonProps = {
     shape,
-    isSelected: selectedShapeIndex === i,
+    isSelected: selectedShapeIndices.includes(i),
     onMouseDown: (e) => handleSelect(e, i),
     onResizeStart: (e, corner) => handleResizeStart(e, i, corner),
     onMouseEnter: () => setHoveredShapeIndex(i),

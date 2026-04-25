@@ -6,6 +6,7 @@ import {
   updateShapeForResize,
   calculateHoverDimensions,
   getShapeAtPoint,
+  getBounds,
 } from "../utils/canvasUtils";
 
 const useCanvas = (mode) => {
@@ -20,7 +21,7 @@ const useCanvas = (mode) => {
     circle: { start: null, current: null },
   });
 
-  const [selectedShapeIndex, setSelectedShapeIndex] = useState(null);
+  const [selectedShapeIndices, setSelectedShapeIndices] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState(null);
   const [isResizing, setIsResizing] = useState(false);
@@ -32,6 +33,9 @@ const useCanvas = (mode) => {
   const [shapes, setShapes] = useState([]);
   const [history, setHistory] = useState([[]]);
   const [step, setStep] = useState(0);
+
+  const [selectionBox, setSelectionBox] = useState(null);
+  const [isSelecting, setIsSelecting] = useState(false);
 
   const getDefaultShapeName = (type, currentShapes) => {
     const prefix = type === 'rectangle' ? 'rectangle' : type === 'circle' ? 'circle' : type === 'line' ? 'line' : 'pen';
@@ -69,6 +73,7 @@ const useCanvas = (mode) => {
   }, [step, history]);
 
   const handleMouseDown = (e) => {
+    if (isSelecting) return;
     if (mode === "select") return;
     const { x, y } = getCoords(e);
     setIsDrawing(true);
@@ -86,13 +91,15 @@ const useCanvas = (mode) => {
 
     if (hitShapeIndex !== null) {
       e.stopPropagation();
-      setSelectedShapeIndex(hitShapeIndex);
+      setSelectedShapeIndices([hitShapeIndex]);
       setIsDragging(true);
       setIsResizing(false);
       setResizeCorner(null);
       setDragStart({ x, y });
     } else {
-      clearSelection();
+      // Start selection box
+      setIsSelecting(true);
+      setSelectionBox({ start: { x, y }, end: { x, y } });
       setIsDragging(false);
       setIsResizing(false);
       setHoverDimensions(null);
@@ -102,12 +109,17 @@ const useCanvas = (mode) => {
   const handleMouseMove = (e) => {
     const { x, y } = getCoords(e);
 
+    if (isSelecting) {
+      setSelectionBox(prev => ({ ...prev, end: { x, y } }));
+      return;
+    }
+
     if (mode === "select" && (isDragging || isResizing) && dragStart) {
       const dx = x - dragStart.x;
       const dy = y - dragStart.y;
       setShapes(prev =>
         prev.map((shape, i) =>
-          i !== selectedShapeIndex
+          !selectedShapeIndices.includes(i)
             ? shape
             : isResizing
             ? updateShapeForResize(shape, x, y, resizeCorner)
@@ -115,7 +127,7 @@ const useCanvas = (mode) => {
         )
       );
       if (isResizing) {
-        const updatedShape = shapes[selectedShapeIndex];
+        const updatedShape = shapes[selectedShapeIndices[0]];
         if (updatedShape) setHoverDimensions(calculateHoverDimensions(updatedShape));
       }
       setDragStart({ x, y });
@@ -177,6 +189,24 @@ const useCanvas = (mode) => {
   };
 
   const handleMouseUp = () => {
+    if (isSelecting) {
+      setIsSelecting(false);
+      const startX = Math.min(selectionBox.start.x, selectionBox.end.x);
+      const startY = Math.min(selectionBox.start.y, selectionBox.end.y);
+      const endX = Math.max(selectionBox.start.x, selectionBox.end.x);
+      const endY = Math.max(selectionBox.start.y, selectionBox.end.y);
+      const selected = [];
+      shapes.forEach((shape, index) => {
+        const bounds = getBounds(shape);
+        if (bounds.left < endX && bounds.right > startX && bounds.top < endY && bounds.bottom > startY) {
+          selected.push(index);
+        }
+      });
+      selectShape(selected);
+      setSelectionBox(null);
+      return;
+    }
+
     setIsDrawing(false);
     setIsDragging(false);
     setIsResizing(false);
@@ -257,7 +287,7 @@ const useCanvas = (mode) => {
     if (mode !== "select") return;
     e.stopPropagation();
     const rect = e.currentTarget.ownerSVGElement.getBoundingClientRect();
-    setSelectedShapeIndex(i);
+    setSelectedShapeIndices([i]);
     setIsDragging(true);
     setDragStart({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   };
@@ -266,14 +296,22 @@ const useCanvas = (mode) => {
     if (mode !== "select") return;
     e.stopPropagation();
     const rect = e.currentTarget.ownerSVGElement.getBoundingClientRect();
-    setSelectedShapeIndex(i);
+    setSelectedShapeIndices([i]);
     setIsResizing(true);
     setResizeCorner(corner);
     setDragStart({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   };
 
-  const selectShape = useCallback((index) => {
-    setSelectedShapeIndex(index);
+  const selectShape = useCallback((indexOrIndices, multi = false) => {
+    if (Array.isArray(indexOrIndices)) {
+      setSelectedShapeIndices(indexOrIndices);
+    } else {
+      if (multi) {
+        setSelectedShapeIndices(prev => prev.includes(indexOrIndices) ? prev.filter(i => i !== indexOrIndices) : [...prev, indexOrIndices]);
+      } else {
+        setSelectedShapeIndices([indexOrIndices]);
+      }
+    }
     setIsDragging(false);
     setIsResizing(false);
   }, []);
@@ -286,21 +324,48 @@ const useCanvas = (mode) => {
     saveToHistory(updatedShapes);
   }, [shapes, saveToHistory]);
 
-  const moveShape = useCallback((index, direction) => {
-    if (index === null || index < 0 || index >= shapes.length) return;
+  const moveShape = useCallback((direction) => {
+    if (selectedShapeIndices.length === 0) return;
     const newShapes = [...shapes];
-    const [movedShape] = newShapes.splice(index, 1);
-    const targetIndex = Math.max(
-      0,
-      Math.min(newShapes.length, index + (direction === 'forward' ? 1 : -1))
-    );
-    newShapes.splice(targetIndex, 0, movedShape);
-    setSelectedShapeIndex(targetIndex);
+    const indices = [...selectedShapeIndices].sort((a,b) => a-b);
+    if (direction === 'forward') {
+      for (let i = indices.length - 1; i >= 0; i--) {
+        const idx = indices[i];
+        if (idx < shapes.length - 1) {
+          [newShapes[idx], newShapes[idx + 1]] = [newShapes[idx + 1], newShapes[idx]];
+          indices[i] = idx + 1;
+        }
+      }
+    } else {
+      for (let i = 0; i < indices.length; i++) {
+        const idx = indices[i];
+        if (idx > 0) {
+          [newShapes[idx], newShapes[idx - 1]] = [newShapes[idx - 1], newShapes[idx]];
+          indices[i] = idx - 1;
+        }
+      }
+    }
+    setShapes(newShapes);
     saveToHistory(newShapes);
-  }, [shapes, saveToHistory]);
+    setSelectedShapeIndices(indices);
+  }, [shapes, selectedShapeIndices, saveToHistory]);
 
-  const moveShapeForward = useCallback((index) => moveShape(index, 'forward'), [moveShape]);
-  const moveShapeBackward = useCallback((index) => moveShape(index, 'backward'), [moveShape]);
+  const moveShapeForward = useCallback(() => moveShape('forward'), [moveShape]);
+  const moveShapeBackward = useCallback(() => moveShape('backward'), [moveShape]);
+
+  const reorderShapes = useCallback((fromIndex, toIndex) => {
+    const newShapes = [...shapes];
+    const [moved] = newShapes.splice(fromIndex, 1);
+    newShapes.splice(toIndex, 0, moved);
+    setShapes(newShapes);
+    saveToHistory(newShapes);
+    setSelectedShapeIndices(prev => prev.map(i => {
+      if (i === fromIndex) return toIndex;
+      if (i > fromIndex && i <= toIndex) return i - 1;
+      if (i < fromIndex && i >= toIndex) return i + 1;
+      return i;
+    }));
+  }, [shapes, saveToHistory]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -315,11 +380,11 @@ const useCanvas = (mode) => {
           return;
         } else if (e.key === '{' || (e.key === '[' && e.shiftKey)) {
           e.preventDefault();
-          moveShapeBackward(selectedShapeIndex);
+          moveShapeBackward();
           return;
         } else if (e.key === '}' || (e.key === ']' && e.shiftKey)) {
           e.preventDefault();
-          moveShapeForward(selectedShapeIndex);
+          moveShapeForward();
           return;
         }
       }
@@ -331,7 +396,7 @@ const useCanvas = (mode) => {
         setShiftPressed(true);
       }
 
-      if (selectedShapeIndex !== null) {
+      if (selectedShapeIndices.length > 0) {
         const moveAmount = 5;
         let dx = 0, dy = 0;
         if (e.key === 'ArrowUp') {
@@ -346,7 +411,7 @@ const useCanvas = (mode) => {
         if (dx !== 0 || dy !== 0) {
           e.preventDefault();
           const newShapes = shapes.map((shape, i) =>
-            i === selectedShapeIndex ? updateShapeForDrag(shape, dx, dy) : shape
+            selectedShapeIndices.includes(i) ? updateShapeForDrag(shape, dx, dy) : shape
           );
           setShapes(newShapes);
           saveToHistory(newShapes);
@@ -354,14 +419,14 @@ const useCanvas = (mode) => {
         }
       }
 
-      if (selectedShapeIndex === null) return;
+      if (selectedShapeIndices.length === 0) return;
 
       if (e.key === "Delete" || e.key === "Backspace") {
         e.preventDefault();
-        const newShapes = shapes.filter((_, i) => i !== selectedShapeIndex);
+        const newShapes = shapes.filter((_, i) => !selectedShapeIndices.includes(i));
         setShapes(newShapes);
         saveToHistory(newShapes);
-        setSelectedShapeIndex(null);
+        setSelectedShapeIndices([]);
       }
     };
 
@@ -380,11 +445,11 @@ const useCanvas = (mode) => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [selectedShapeIndex, shapes, undo, redo, saveToHistory, moveShapeBackward, moveShapeForward]);
+  }, [selectedShapeIndices, shapes, undo, redo, saveToHistory, moveShapeBackward, moveShapeForward]);
 
   const onShapeUpdate = useCallback((updatedShape) => {
     const updatedShapes = shapes.reduce((result, shape, i) => {
-      if (i !== selectedShapeIndex) {
+      if (!selectedShapeIndices.includes(i)) {
         result.push(shape);
       } else if (!isEmptyShape(updatedShape)) {
         result.push(updatedShape);
@@ -395,19 +460,19 @@ const useCanvas = (mode) => {
     setShapes(updatedShapes);
     saveToHistory(updatedShapes);
     if (isEmptyShape(updatedShape)) {
-      setSelectedShapeIndex(null);
+      setSelectedShapeIndices([]);
     }
-  }, [shapes, selectedShapeIndex, saveToHistory]);
+  }, [shapes, selectedShapeIndices, saveToHistory]);
 
   const clearSelection = useCallback(() => {
-    setSelectedShapeIndex(null);
+    setSelectedShapeIndices([]);
   }, []);
 
   return {
     shapes,
     hoverDimensions,
-    selectedShapeIndex,
-    selectedShape: selectedShapeIndex !== null ? shapes[selectedShapeIndex] : null,
+    selectedShapeIndices,
+    selectedShape: selectedShapeIndices.length > 0 ? shapes[selectedShapeIndices[0]] : null,
     drawingState,
     handleCanvasMouseDownCapture,
     handleMouseDown,
@@ -421,10 +486,12 @@ const useCanvas = (mode) => {
     renameShape,
     moveShapeForward,
     moveShapeBackward,
+    reorderShapes,
     altPressed,
     shiftPressed,
     hoveredShapeIndex,
     setHoveredShapeIndex,
+    selectionBox,
   };
 };
 

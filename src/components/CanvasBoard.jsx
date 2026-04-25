@@ -7,7 +7,7 @@ import { useRef } from "react";
 const CanvasBoard = ({
   shapes,
   hoverDimensions,
-  selectedShapeIndex,
+  selectedShapeIndices,
   drawingState,
   handleMouseDown,
   handleMouseMove,
@@ -19,11 +19,12 @@ const CanvasBoard = ({
   shiftPressed,
   hoveredShapeIndex,
   setHoveredShapeIndex,
+  selectionBox,
 }) => {
   const svgRef = useRef();
 
   const renderDistanceGuides = () => {
-    if (!altPressed || selectedShapeIndex === null) return null;
+    if (!altPressed || selectedShapeIndices.length === 0) return null;
 
     const svg = svgRef.current;
     if (!svg) return null;
@@ -32,7 +33,7 @@ const CanvasBoard = ({
     const boardWidth = boardRect.width;
     const boardHeight = boardRect.height;
 
-    const selectedShape = shapes[selectedShapeIndex];
+    const selectedShape = shapes[selectedShapeIndices[0]];
     const selectedBounds = getBounds(selectedShape);
 
     const guides = [];
@@ -70,7 +71,7 @@ const CanvasBoard = ({
     );
 
     // If hovering another shape, show distances between shapes
-    if (hoveredShapeIndex !== null && hoveredShapeIndex !== selectedShapeIndex) {
+    if (hoveredShapeIndex !== null && !selectedShapeIndices.includes(hoveredShapeIndex)) {
       const hoveredShape = shapes[hoveredShapeIndex];
       const hoveredBounds = getBounds(hoveredShape);
 
@@ -132,7 +133,7 @@ const CanvasBoard = ({
             key={i}
             shape={shape}
             i={i}
-            selectedShapeIndex={selectedShapeIndex}
+            selectedShapeIndices={selectedShapeIndices}
             handleSelect={handleSelect}
             handleResizeStart={handleResizeStart}
             setHoveredShapeIndex={setHoveredShapeIndex}
@@ -148,7 +149,17 @@ const CanvasBoard = ({
           shiftPressed={shiftPressed}
           points={drawingState.pen.points}
         />
-
+        {selectionBox && (
+          <rect
+            x={Math.min(selectionBox.start.x, selectionBox.end.x)}
+            y={Math.min(selectionBox.start.y, selectionBox.end.y)}
+            width={Math.abs(selectionBox.end.x - selectionBox.start.x)}
+            height={Math.abs(selectionBox.end.y - selectionBox.start.y)}
+            fill="none"
+            stroke="blue"
+            strokeWidth={1}
+          />
+        )}
         {hoverDimensions && (
           <text x={hoverDimensions.x} y={hoverDimensions.y} fontSize="12">
             {hoverDimensions.height

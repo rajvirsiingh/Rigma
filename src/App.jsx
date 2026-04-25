@@ -23,11 +23,10 @@ function App() {
       <div className="main-content">
         <ShapeSidebar
           shapes={canvasData.shapes}
-          selectedShapeIndex={canvasData.selectedShapeIndex}
+          selectedShapeIndices={canvasData.selectedShapeIndices}
           onSelectShape={canvasData.selectShape}
           onRenameShape={canvasData.renameShape}
-          onMoveForward={canvasData.moveShapeForward}
-          onMoveBackward={canvasData.moveShapeBackward}
+          onReorderShapes={canvasData.reorderShapes}
         />
         <CanvasBoard {...canvasData} />
         <ShapeControls
