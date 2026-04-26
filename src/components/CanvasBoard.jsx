@@ -2,7 +2,7 @@ import style from "./Canvas.module.css";
 import ShapeRenderer from "./ShapeRenderer";
 import PreviewShapes from "./PreviewShapes";
 import { getBounds } from "../utils/canvasUtils";
-import { useRef } from "react";
+import { useRef, useEffect, useState } from "react";
 
 const CanvasBoard = ({
   shapes,
@@ -15,6 +15,12 @@ const CanvasBoard = ({
   handleCanvasMouseDownCapture,
   handleSelect,
   handleResizeStart,
+  handleTextEdit,
+  editingTextIndex,
+  editingTextValue,
+  updateTextDraft,
+  finishTextEdit,
+  cancelTextEdit,
   altPressed,
   shiftPressed,
   hoveredShapeIndex,
@@ -22,16 +28,33 @@ const CanvasBoard = ({
   selectionBox,
 }) => {
   const svgRef = useRef();
+  const inputRef = useRef(null);
+  const [boardDimensions, setBoardDimensions] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editingTextIndex]);
+
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (svgRef.current) {
+        const rect = svgRef.current.getBoundingClientRect();
+        setBoardDimensions({ width: rect.width, height: rect.height });
+      }
+    };
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
 
   const renderDistanceGuides = () => {
     if (!altPressed || selectedShapeIndices.length === 0) return null;
 
-    const svg = svgRef.current;
-    if (!svg) return null;
-
-    const boardRect = svg.getBoundingClientRect();
-    const boardWidth = boardRect.width;
-    const boardHeight = boardRect.height;
+    const boardWidth = boardDimensions.width;
+    const boardHeight = boardDimensions.height;
 
     const selectedShape = shapes[selectedShapeIndices[0]];
     const selectedBounds = getBounds(selectedShape);
@@ -76,9 +99,7 @@ const CanvasBoard = ({
       const hoveredBounds = getBounds(hoveredShape);
 
       const selectedCenterY = (selectedBounds.top + selectedBounds.bottom) / 2;
-      const hoveredCenterY = (hoveredBounds.top + hoveredBounds.bottom) / 2;
       const selectedCenterX = (selectedBounds.left + selectedBounds.right) / 2;
-      const hoveredCenterX = (hoveredBounds.left + hoveredBounds.right) / 2;
 
       // Horizontal distance
       if (selectedBounds.right < hoveredBounds.left) {
@@ -137,6 +158,7 @@ const CanvasBoard = ({
             handleSelect={handleSelect}
             handleResizeStart={handleResizeStart}
             setHoveredShapeIndex={setHoveredShapeIndex}
+            handleTextEdit={handleTextEdit}
           />
         ))}
         <PreviewShapes
@@ -170,6 +192,54 @@ const CanvasBoard = ({
 
         {renderDistanceGuides()}
       </svg>
+      {editingTextIndex !== null && (() => {
+        const shape = shapes[editingTextIndex];
+        if (!shape || shape.type !== "text") return null;
+
+        const fontSize = shape.fontSize || 24;
+        const textLength = Math.max(shape.text?.length || 0, 1);
+        const width = Math.max(120, textLength * (fontSize * 0.6) + 20);
+        const height = fontSize * 1.3;
+
+        const anchorOffset = shape.textAlign === "center"
+          ? -width / 2
+          : shape.textAlign === "right"
+          ? -width
+          : 0;
+
+        const left = shape.x + anchorOffset;
+        const top = shape.y - height * 0.7;
+
+        return (
+          <input
+            ref={inputRef}
+            className={style.textEditorInput}
+            value={editingTextValue}
+            onChange={(e) => updateTextDraft(e.target.value)}
+            onBlur={finishTextEdit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                finishTextEdit();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                cancelTextEdit();
+              }
+            }}
+            style={{
+              position: "absolute",
+              left,
+              top,
+              minWidth: width,
+              fontSize,
+              fontFamily: shape.fontFamily || "Arial",
+              color: shape.fillColor || "#000000",
+              width,
+              height,
+            }}
+          />
+        );
+      })()}
     </section>
   );
 };

@@ -30,6 +30,9 @@ export const updateShapeForDrag = (shape, dx, dy) => {
     }
     return moved;
   }
+  if (shape.type === 'text') {
+    return { ...shape, x: shape.x + dx, y: shape.y + dy };
+  }
   return shape;
 };
 
@@ -109,6 +112,13 @@ export const getBounds = (shape) => {
     const right = Math.max(...xs);
     const bottom = Math.max(...ys);
     return { left, top, right, bottom };
+  }
+  if (shape.type === 'text') {
+    const width = Math.max(0, shape.text?.length * (shape.fontSize * 0.6));
+    const height = Math.max(0, shape.fontSize * 1.2);
+    const x = shape.x + (shape.textAlign === 'center' ? -width / 2 : shape.textAlign === 'right' ? -width : 0);
+    const y = shape.y - height * 0.8;
+    return { left: x, top: y, right: x + width, bottom: y + height };
   }
   return { left: 0, top: 0, right: 0, bottom: 0 };
 };
@@ -220,8 +230,9 @@ export const getShapeAtPoint = (shapes, x, y) => {
       for (let p = 0; p < points.length - 1; p += 1) {
         const dist = getDistanceToLine(x, y, points[p].x, points[p].y, points[p + 1].x, points[p + 1].y);
         if (dist <= strokeWidth / 2) return i;
-      }
-    }
+      }    } else if (shape.type === 'text') {
+      const bounds = getBounds(shape);
+      if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom) return i;    }
   }
   return null;
 };

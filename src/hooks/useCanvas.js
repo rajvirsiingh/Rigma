@@ -19,6 +19,7 @@ const useCanvas = (mode) => {
     rect: { start: null, current: null },
     line: { start: null, current: null },
     circle: { start: null, current: null },
+    text: { start: null, current: null },
   });
 
   const [selectedShapeIndices, setSelectedShapeIndices] = useState([]);
@@ -36,9 +37,19 @@ const useCanvas = (mode) => {
 
   const [selectionBox, setSelectionBox] = useState(null);
   const [isSelecting, setIsSelecting] = useState(false);
+  const [editingTextIndex, setEditingTextIndex] = useState(null);
+  const [editingTextValue, setEditingTextValue] = useState("");
 
   const getDefaultShapeName = (type, currentShapes) => {
-    const prefix = type === 'rectangle' ? 'rectangle' : type === 'circle' ? 'circle' : type === 'line' ? 'line' : 'pen';
+    const prefix = type === 'rectangle'
+      ? 'rectangle'
+      : type === 'circle'
+      ? 'circle'
+      : type === 'line'
+      ? 'line'
+      : type === 'text'
+      ? 'text'
+      : 'pen';
     const count = currentShapes.filter((shape) => shape.type === type).length + 1;
     return `${prefix}${count}`;
   };
@@ -276,6 +287,27 @@ const useCanvas = (mode) => {
       };
       saveToHistory([...shapes, newShape]);
       setDrawingState(prev => ({ ...prev, circle: { start: null, current: null } }));
+    } else if (mode === "text" && ds.text.start) {
+      const start = ds.text.start;
+      const newShape = {
+        type: "text",
+        name: getDefaultShapeName('text', shapes),
+        text: 'Text',
+        x: start.x,
+        y: start.y,
+        fontSize: 24,
+        fontFamily: 'Arial',
+        textAlign: 'left',
+        rotation: 0,
+        fillColor: '#000000',
+        strokeColor: 'transparent',
+      };
+      const newShapes = [...shapes, newShape];
+      saveToHistory(newShapes);
+      setSelectedShapeIndices([newShapes.length - 1]);
+      setEditingTextIndex(newShapes.length - 1);
+      setEditingTextValue(newShape.text);
+      setDrawingState(prev => ({ ...prev, text: { start: null, current: null } }));
     }
 
     if (mode === "select" && (isDragging || isResizing)) {
@@ -301,6 +333,34 @@ const useCanvas = (mode) => {
     setResizeCorner(corner);
     setDragStart({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   };
+
+  const handleTextEdit = useCallback((index) => {
+    const shape = shapes[index];
+    if (!shape || shape.type !== 'text') return;
+    setSelectedShapeIndices([index]);
+    setEditingTextIndex(index);
+    setEditingTextValue(shape.text || '');
+  }, [shapes]);
+
+  const updateTextDraft = useCallback((value) => {
+    setEditingTextValue(value);
+  }, []);
+
+  const finishTextEdit = useCallback(() => {
+    if (editingTextIndex === null) return;
+    const updatedShapes = shapes.map((item, i) =>
+      i === editingTextIndex ? { ...item, text: editingTextValue } : item
+    );
+    setShapes(updatedShapes);
+    saveToHistory(updatedShapes);
+    setEditingTextIndex(null);
+    setEditingTextValue("");
+  }, [editingTextIndex, editingTextValue, shapes, saveToHistory]);
+
+  const cancelTextEdit = useCallback(() => {
+    setEditingTextIndex(null);
+    setEditingTextValue("");
+  }, []);
 
   const selectShape = useCallback((indexOrIndices, multi = false) => {
     if (Array.isArray(indexOrIndices)) {
@@ -480,6 +540,12 @@ const useCanvas = (mode) => {
     handleMouseUp,
     handleSelect,
     handleResizeStart,
+    handleTextEdit,
+    editingTextIndex,
+    editingTextValue,
+    updateTextDraft,
+    finishTextEdit,
+    cancelTextEdit,
     onShapeUpdate,
     clearSelection,
     selectShape,

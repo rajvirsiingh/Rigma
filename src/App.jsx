@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import './App.css'
 import CanvasBoard from './components/CanvasBoard'
 import Toolbar from './components/Toolbar'
@@ -10,10 +10,35 @@ function App() {
   const [mode, setMode] = useState('pen')
   const canvasData = useCanvas(mode)
 
-  const handleModeChange = (newMode) => {
+  const handleModeChange = useCallback((newMode) => {
     setMode(newMode);
     canvasData.clearSelection();
-  };
+  }, [canvasData]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ignore if typing in an input or textarea
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      const key = e.key.toLowerCase();
+      const keyToMode = {
+        'v': 'select',
+        'p': 'pen',
+        'l': 'line',
+        'r': 'rect',
+        'c': 'circle',
+        't': 'text',
+      };
+
+      if (keyToMode[key]) {
+        e.preventDefault();
+        handleModeChange(keyToMode[key]);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleModeChange]);
 
   return (
     <div className="app">

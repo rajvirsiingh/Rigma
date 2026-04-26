@@ -1,53 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import styles from './ShapeControls.module.css';
 
 const ShapeControls = ({ selectedShape, onShapeUpdate }) => {
-  const [properties, setProperties] = useState({
-    strokeColor: '#000000',
-    fillColor: 'transparent',
-    strokeWidth: 2,
-    borderRadius: {
-      tl: 0,
-      tr: 0,
-      br: 0,
-      bl: 0,
-    },
-    width: 0,
-    height: 0,
-    radiusX: 0,
-    radiusY: 0,
-  });
+  const properties = useMemo(() => {
+    if (!selectedShape) return null;
 
-  useEffect(() => {
-    if (selectedShape) {
-      const baseProperties = {
-        strokeColor: selectedShape.strokeColor || '#000000',
-        fillColor: selectedShape.fillColor && selectedShape.fillColor !== 'transparent' && selectedShape.fillColor !== 'none' ? selectedShape.fillColor : '#ffffff',
-        strokeWidth: selectedShape.strokeWidth || 2,
-        borderRadius: selectedShape.borderRadius || {
-          tl: 0,
-          tr: 0,
-          br: 0,
-          bl: 0,
-        },
+    const baseProperties = {
+      strokeColor: selectedShape.strokeColor || '#000000',
+      fillColor: selectedShape.fillColor && selectedShape.fillColor !== 'transparent' && selectedShape.fillColor !== 'none' ? selectedShape.fillColor : '#ffffff',
+      strokeWidth: selectedShape.strokeWidth || 2,
+      borderRadius: selectedShape.borderRadius || {
+        tl: 0,
+        tr: 0,
+        br: 0,
+        bl: 0,
+      },
+    };
+
+    if (selectedShape.type === 'rectangle') {
+      const width = Math.abs(selectedShape.end.x - selectedShape.start.x);
+      const height = Math.abs(selectedShape.end.y - selectedShape.start.y);
+      return { ...baseProperties, width, height, radiusX: 0, radiusY: 0 };
+    } else if (selectedShape.type === 'circle') {
+      const radiusX = selectedShape.radiusX ?? Math.abs((selectedShape.edge?.x ?? selectedShape.center.x) - selectedShape.center.x);
+      const radiusY = selectedShape.radiusY ?? Math.abs((selectedShape.edge?.y ?? selectedShape.center.y) - selectedShape.center.y);
+      return { ...baseProperties, radiusX, radiusY, width: radiusX * 2, height: radiusY * 2 };
+    } else if (selectedShape.type === 'text') {
+      return {
+        ...baseProperties,
+        text: selectedShape.text || '',
+        fontSize: selectedShape.fontSize || 24,
+        fontFamily: selectedShape.fontFamily || 'Arial',
+        textAlign: selectedShape.textAlign || 'left',
+        rotation: selectedShape.rotation || 0,
+        fillColor: selectedShape.fillColor || '#000000',
       };
-
-      if (selectedShape.type === 'rectangle') {
-        const width = Math.abs(selectedShape.end.x - selectedShape.start.x);
-        const height = Math.abs(selectedShape.end.y - selectedShape.start.y);
-        setProperties({ ...baseProperties, width, height, radiusX: 0, radiusY: 0 });
-      } else if (selectedShape.type === 'circle') {
-        const radiusX = selectedShape.radiusX ?? Math.abs((selectedShape.edge?.x ?? selectedShape.center.x) - selectedShape.center.x);
-        const radiusY = selectedShape.radiusY ?? Math.abs((selectedShape.edge?.y ?? selectedShape.center.y) - selectedShape.center.y);
-        setProperties({ ...baseProperties, radiusX, radiusY, width: radiusX * 2, height: radiusY * 2 });
-      } else {
-        setProperties(baseProperties);
-      }
+    } else {
+      return baseProperties;
     }
   }, [selectedShape]);
 
   const handlePropertyChange = (property, value) => {
-    let updatedProperties;
+    if (!selectedShape || !onShapeUpdate) return;
+
+    let updatedProperties = { ...properties };
 
     if (property.startsWith('borderRadius.')) {
       const key = property.split('.')[1];
@@ -68,39 +64,40 @@ const ShapeControls = ({ selectedShape, onShapeUpdate }) => {
       updatedProperties = { ...properties, [property]: value };
     }
 
-    setProperties(updatedProperties);
+    let updatedShape = { ...selectedShape, ...updatedProperties };
 
-    if (selectedShape && onShapeUpdate) {
-      let updatedShape = { ...selectedShape, ...updatedProperties };
+    if (selectedShape.type === 'rectangle' && (property === 'width' || property === 'height')) {
+      const { start, end } = selectedShape;
+      const left = Math.min(start.x, end.x);
+      const top = Math.min(start.y, end.y);
+      const right = Math.max(start.x, end.x);
+      const bottom = Math.max(start.y, end.y);
 
-      if (selectedShape.type === 'rectangle' && (property === 'width' || property === 'height')) {
-        const { start, end } = selectedShape;
-        const left = Math.min(start.x, end.x);
-        const top = Math.min(start.y, end.y);
-        const right = Math.max(start.x, end.x);
-        const bottom = Math.max(start.y, end.y);
+      let newStart = { ...start };
+      let newEnd = { ...end };
 
-        let newStart = { ...start };
-        let newEnd = { ...end };
-
-        if (property === 'width') {
-          const newRight = left + value;
-          if (start.x === right) newStart.x = newRight; else newEnd.x = newRight;
-        } else if (property === 'height') {
-          const newBottom = top + value;
-          if (start.y === bottom) newStart.y = newBottom; else newEnd.y = newBottom;
-        }
-
-        updatedShape = { ...updatedShape, start: newStart, end: newEnd };
-      } else if (selectedShape.type === 'circle' && (property === 'radiusX' || property === 'radiusY')) {
-        updatedShape = {
-          ...updatedShape,
-          [property]: value,
-        };
+      if (property === 'width') {
+        const newRight = left + value;
+        if (start.x === right) newStart.x = newRight; else newEnd.x = newRight;
+      } else if (property === 'height') {
+        const newBottom = top + value;
+        if (start.y === bottom) newStart.y = newBottom; else newEnd.y = newBottom;
       }
 
-      onShapeUpdate(updatedShape);
+      updatedShape = { ...updatedShape, start: newStart, end: newEnd };
+    } else if (selectedShape.type === 'circle' && (property === 'radiusX' || property === 'radiusY')) {
+      updatedShape = {
+        ...updatedShape,
+        [property]: value,
+      };
+    } else if (selectedShape.type === 'text' && ['text', 'fontSize', 'fontFamily', 'textAlign', 'rotation', 'fillColor'].includes(property)) {
+      updatedShape = {
+        ...updatedShape,
+        [property]: value,
+      };
     }
+
+    onShapeUpdate(updatedShape);
   };
 
   if (!selectedShape) {
@@ -137,19 +134,89 @@ const ShapeControls = ({ selectedShape, onShapeUpdate }) => {
         </label>
       </div>
 
-      <div className={styles.propertyGroup}>
-        <label>
-          Stroke Width:
-          <input
-            type="range"
-            min="0"
-            max="20"
-            value={properties.strokeWidth}
-            onChange={(e) => handlePropertyChange('strokeWidth', parseInt(e.target.value))}
-          />
-          <span>{properties.strokeWidth}px</span>
-        </label>
-      </div>
+      {selectedShape.type === 'text' ? (
+        <>
+          <div className={styles.propertyGroup}>
+            <label>
+              Text:
+              <input
+                type="text"
+                value={properties.text}
+                onChange={(e) => handlePropertyChange('text', e.target.value)}
+              />
+            </label>
+          </div>
+
+          <div className={styles.propertyGroup}>
+            <label>
+              Font Size:
+              <input
+                type="number"
+                min="6"
+                value={properties.fontSize}
+                onChange={(e) => handlePropertyChange('fontSize', parseInt(e.target.value) || 6)}
+              />
+            </label>
+          </div>
+
+          <div className={styles.propertyGroup}>
+            <label>
+              Font Family:
+              <select
+                value={properties.fontFamily}
+                onChange={(e) => handlePropertyChange('fontFamily', e.target.value)}
+              >
+                <option value="Arial">Arial</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Times New Roman">Times New Roman</option>
+                <option value="Courier New">Courier New</option>
+                <option value="Verdana">Verdana</option>
+              </select>
+            </label>
+          </div>
+
+          <div className={styles.propertyGroup}>
+            <label>
+              Alignment:
+              <select
+                value={properties.textAlign}
+                onChange={(e) => handlePropertyChange('textAlign', e.target.value)}
+              >
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </label>
+          </div>
+
+          <div className={styles.propertyGroup}>
+            <label>
+              Rotation:
+              <input
+                type="number"
+                value={properties.rotation}
+                onChange={(e) => handlePropertyChange('rotation', parseInt(e.target.value) || 0)}
+              />
+            </label>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className={styles.propertyGroup}>
+            <label>
+              Stroke Width:
+              <input
+                type="range"
+                min="0"
+                max="20"
+                value={properties.strokeWidth}
+                onChange={(e) => handlePropertyChange('strokeWidth', parseInt(e.target.value))}
+              />
+              <span>{properties.strokeWidth}px</span>
+            </label>
+          </div>
+        </>
+      )}
 
       {selectedShape.type === 'rectangle' && (
         <>

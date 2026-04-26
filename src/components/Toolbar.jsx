@@ -1,7 +1,7 @@
 import React from 'react'
 import styles from './Toolbar.module.css'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faMousePointer, faPenFancy, faSlash, faSquare, faCircle } from '@fortawesome/free-solid-svg-icons'
+import { faMousePointer, faPenFancy, faSlash, faSquare, faCircle, faFont } from '@fortawesome/free-solid-svg-icons'
 
 const Toolbar = ({ onModeChange, mode }) => {
   const handleModeChange = (newMode) => {
@@ -20,8 +20,10 @@ const Toolbar = ({ onModeChange, mode }) => {
             onClick={() => handleModeChange('select')}
             aria-label="Select tool"
             aria-pressed={mode === 'select'}
+            title="Select Tool (V)"
           >
             <FontAwesomeIcon icon={faMousePointer} size="lg" />
+            <span className={styles.hotkeyLabel}>Select (V)</span>
           </button>
         </li>
         <li>
@@ -31,8 +33,10 @@ const Toolbar = ({ onModeChange, mode }) => {
             onClick={() => handleModeChange('pen')}
             aria-label="Pen tool"
             aria-pressed={mode === 'pen'}
+            title="Pen Tool (P)"
           >
             <FontAwesomeIcon icon={faPenFancy} size="lg" />
+            <span className={styles.hotkeyLabel}>Pen (P)</span>
           </button>
         </li>
         <li>
@@ -42,8 +46,10 @@ const Toolbar = ({ onModeChange, mode }) => {
             onClick={() => handleModeChange('line')}
             aria-label="Line tool"
             aria-pressed={mode === 'line'}
+            title="Line Tool (L)"
           >
             <FontAwesomeIcon icon={faSlash} size="lg" />
+            <span className={styles.hotkeyLabel}>Line (L)</span>
           </button>
         </li>
         <li>
@@ -53,8 +59,10 @@ const Toolbar = ({ onModeChange, mode }) => {
             onClick={() => handleModeChange('rect')}
             aria-label="Rectangle tool"
             aria-pressed={mode === 'rect'}
+            title="Rectangle Tool (R)"
           >
             <FontAwesomeIcon icon={faSquare} size="lg" />
+            <span className={styles.hotkeyLabel}>Rectangle (R)</span>
           </button>
         </li>
         <li>
@@ -64,8 +72,23 @@ const Toolbar = ({ onModeChange, mode }) => {
             onClick={() => handleModeChange('circle')}
             aria-label="Circle tool"
             aria-pressed={mode === 'circle'}
+            title="Circle Tool (C)"
           >
             <FontAwesomeIcon icon={faCircle} size="lg" />
+            <span className={styles.hotkeyLabel}>Circle (C)</span>
+          </button>
+        </li>
+        <li>
+          <button
+            type="button"
+            className={`${styles.toolbarButton} ${mode === 'text' ? styles.active : ''}`}
+            onClick={() => handleModeChange('text')}
+            aria-label="Text tool"
+            aria-pressed={mode === 'text'}
+            title="Text Tool (T)"
+          >
+            <FontAwesomeIcon icon={faFont} size="lg" />
+            <span className={styles.hotkeyLabel}>Text (T)</span>
           </button>
         </li>
       </ul>
