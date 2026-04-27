@@ -1,3 +1,5 @@
+import { getVectorBounds, getVectorSegmentHit } from "./vectorPath";
+
 export const getCoords = (e) => {
   const rect = e.currentTarget.getBoundingClientRect();
   const touch = e.touches?.[0] || e;
@@ -32,6 +34,24 @@ export const updateShapeForDrag = (shape, dx, dy) => {
   }
   if (shape.type === 'text') {
     return { ...shape, x: shape.x + dx, y: shape.y + dy };
+  }
+  if (shape.type === "freehand") {
+    return {
+      ...shape,
+      points: shape.points.map((point) => ({ x: point.x + dx, y: point.y + dy })),
+    };
+  }
+  if (shape.type === "vectorPen") {
+    return {
+      ...shape,
+      points: shape.points.map((point) => ({
+        ...point,
+        x: point.x + dx,
+        y: point.y + dy,
+        inHandle: point.inHandle ? { x: point.inHandle.x + dx, y: point.inHandle.y + dy } : null,
+        outHandle: point.outHandle ? { x: point.outHandle.x + dx, y: point.outHandle.y + dy } : null,
+      })),
+    };
   }
   return shape;
 };
@@ -104,7 +124,7 @@ export const getBounds = (shape) => {
     const bottom = Math.max(shape.start.y, shape.end.y);
     return { left, top, right, bottom };
   }
-  if (shape.type === "pen") {
+  if (shape.type === "freehand") {
     const xs = shape.points.map(p => p.x);
     const ys = shape.points.map(p => p.y);
     const left = Math.min(...xs);
@@ -112,6 +132,9 @@ export const getBounds = (shape) => {
     const right = Math.max(...xs);
     const bottom = Math.max(...ys);
     return { left, top, right, bottom };
+  }
+  if (shape.type === "vectorPen") {
+    return getVectorBounds(shape);
   }
   if (shape.type === 'text') {
     const width = Math.max(0, shape.text?.length * (shape.fontSize * 0.6));
@@ -225,14 +248,20 @@ export const getShapeAtPoint = (shapes, x, y) => {
     } else if (shape.type === 'line') {
       const { start, end, strokeWidth = 0 } = shape;
       if (getDistanceToLine(x, y, start.x, start.y, end.x, end.y) <= strokeWidth / 2) return i;
-    } else if (shape.type === 'pen') {
+    } else if (shape.type === "freehand") {
       const { points, strokeWidth = 0 } = shape;
       for (let p = 0; p < points.length - 1; p += 1) {
         const dist = getDistanceToLine(x, y, points[p].x, points[p].y, points[p + 1].x, points[p + 1].y);
         if (dist <= strokeWidth / 2) return i;
-      }    } else if (shape.type === 'text') {
+      }
+    } else if (shape.type === "vectorPen") {
+      const tolerance = Math.max((shape.strokeWidth || 0) / 2, 4);
+      const curveHit = getVectorSegmentHit(shape, { x, y }, tolerance);
+      if (curveHit) return i;
+    } else if (shape.type === "text") {
       const bounds = getBounds(shape);
-      if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom) return i;    }
+      if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom) return i;
+    }
   }
   return null;
 };

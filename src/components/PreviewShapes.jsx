@@ -1,3 +1,5 @@
+import { buildVectorPathData } from "../utils/vectorPath";
+
 const PreviewShapes = ({
   rectStart,
   rectCurrent,
@@ -6,19 +8,78 @@ const PreviewShapes = ({
   circleStart,
   circleCurrent,
   shiftPressed,
-  points,
+  freehandPoints = [],
+  vectorPenPoints = [],
+  vectorPenClosed,
+  activeVectorDraftPointIndex,
 }) => {
+  const vectorPreviewPath = buildVectorPathData(vectorPenPoints, vectorPenClosed);
+  const activeDraftPoint = activeVectorDraftPointIndex !== null && activeVectorDraftPointIndex !== undefined
+    ? vectorPenPoints[activeVectorDraftPointIndex]
+    : null;
+
   return (
     <>
-      {points.length > 0 && (
+      {freehandPoints.length > 0 && (
         <polyline
-          points={points.map((p) => `${p.x},${p.y}`).join(" ")}
+          points={freehandPoints.map((p) => `${p.x},${p.y}`).join(" ")}
           fill="none"
           stroke="black"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+      )}
+      {vectorPreviewPath && (
+        <>
+          <path
+            d={vectorPreviewPath}
+            fill={vectorPenClosed ? "rgba(59,130,246,0.12)" : "transparent"}
+            stroke="#2563eb"
+            strokeWidth="2"
+            strokeDasharray="6,3"
+            pointerEvents="none"
+          />
+          {vectorPenPoints.map((point, index) => (
+            <circle
+              key={`draft-anchor-${index}`}
+              cx={point.x}
+              cy={point.y}
+              r={5}
+              fill={index === activeVectorDraftPointIndex ? "#2563eb" : "#60a5fa"}
+              stroke="#ffffff"
+              pointerEvents="none"
+            />
+          ))}
+          {activeDraftPoint?.inHandle && (
+            <>
+              <line
+                x1={activeDraftPoint.x}
+                y1={activeDraftPoint.y}
+                x2={activeDraftPoint.inHandle.x}
+                y2={activeDraftPoint.inHandle.y}
+                stroke="#6b7280"
+                strokeDasharray="3,2"
+                pointerEvents="none"
+              />
+              <circle cx={activeDraftPoint.inHandle.x} cy={activeDraftPoint.inHandle.y} r={4} fill="#ffffff" stroke="#6b7280" pointerEvents="none" />
+            </>
+          )}
+          {activeDraftPoint?.outHandle && (
+            <>
+              <line
+                x1={activeDraftPoint.x}
+                y1={activeDraftPoint.y}
+                x2={activeDraftPoint.outHandle.x}
+                y2={activeDraftPoint.outHandle.y}
+                stroke="#6b7280"
+                strokeDasharray="3,2"
+                pointerEvents="none"
+              />
+              <circle cx={activeDraftPoint.outHandle.x} cy={activeDraftPoint.outHandle.y} r={4} fill="#ffffff" stroke="#6b7280" pointerEvents="none" />
+            </>
+          )}
+        </>
       )}
 
       {rectStart && rectCurrent && (

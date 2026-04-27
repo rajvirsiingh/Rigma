@@ -7,7 +7,7 @@ import ShapeSidebar from './components/ShapeSidebar'
 import useCanvas from './hooks/useCanvas'
 
 function App() {
-  const [mode, setMode] = useState('pen')
+  const [mode, setMode] = useState('freehand')
   const canvasData = useCanvas(mode)
 
   const handleModeChange = useCallback((newMode) => {
@@ -23,7 +23,8 @@ function App() {
       const key = e.key.toLowerCase();
       const keyToMode = {
         'v': 'select',
-        'p': 'pen',
+        'p': 'vectorPen',
+        'b': 'freehand',
         'l': 'line',
         'r': 'rect',
         'c': 'circle',
@@ -53,7 +54,7 @@ function App() {
           onRenameShape={canvasData.renameShape}
           onReorderShapes={canvasData.reorderShapes}
         />
-        <CanvasBoard {...canvasData} />
+        <CanvasBoard {...canvasData} mode={mode} />
         <ShapeControls
           selectedShape={canvasData.selectedShape}
           onShapeUpdate={canvasData.onShapeUpdate}

@@ -1,7 +1,7 @@
 import React from 'react'
 import styles from './Toolbar.module.css'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faMousePointer, faPenFancy, faSlash, faSquare, faCircle, faFont } from '@fortawesome/free-solid-svg-icons'
+import { faMousePointer, faPenFancy, faSignature, faSlash, faSquare, faCircle, faFont } from '@fortawesome/free-solid-svg-icons'
 
 const Toolbar = ({ onModeChange, mode }) => {
   const handleModeChange = (newMode) => {
@@ -29,14 +29,27 @@ const Toolbar = ({ onModeChange, mode }) => {
         <li>
           <button
             type="button"
-            className={`${styles.toolbarButton} ${mode === 'pen' ? styles.active : ''}`}
-            onClick={() => handleModeChange('pen')}
-            aria-label="Pen tool"
-            aria-pressed={mode === 'pen'}
-            title="Pen Tool (P)"
+            className={`${styles.toolbarButton} ${mode === 'freehand' ? styles.active : ''}`}
+            onClick={() => handleModeChange('freehand')}
+            aria-label="Freehand tool"
+            aria-pressed={mode === 'freehand'}
+            title="Freehand Tool (B)"
           >
             <FontAwesomeIcon icon={faPenFancy} size="lg" />
-            <span className={styles.hotkeyLabel}>Pen (P)</span>
+            <span className={styles.hotkeyLabel}>Freehand (B)</span>
+          </button>
+        </li>
+        <li>
+          <button
+            type="button"
+            className={`${styles.toolbarButton} ${mode === 'vectorPen' ? styles.active : ''}`}
+            onClick={() => handleModeChange('vectorPen')}
+            aria-label="Vector pen tool"
+            aria-pressed={mode === 'vectorPen'}
+            title="Vector Pen Tool (P)"
+          >
+            <FontAwesomeIcon icon={faSignature} size="lg" />
+            <span className={styles.hotkeyLabel}>Vector Pen (P)</span>
           </button>
         </li>
         <li>

@@ -26,6 +26,10 @@ const CanvasBoard = ({
   hoveredShapeIndex,
   setHoveredShapeIndex,
   selectionBox,
+  mode,
+  activeVectorPoint,
+  handleVectorPointMouseDown,
+  handleVectorPointDoubleClick,
 }) => {
   const svgRef = useRef();
   const inputRef = useRef(null);
@@ -159,6 +163,9 @@ const CanvasBoard = ({
             handleResizeStart={handleResizeStart}
             setHoveredShapeIndex={setHoveredShapeIndex}
             handleTextEdit={handleTextEdit}
+            activeVectorPoint={activeVectorPoint}
+            onVectorPointMouseDown={handleVectorPointMouseDown}
+            onVectorPointDoubleClick={handleVectorPointDoubleClick}
           />
         ))}
         <PreviewShapes
@@ -169,7 +176,10 @@ const CanvasBoard = ({
           circleStart={drawingState.circle.start}
           circleCurrent={drawingState.circle.current}
           shiftPressed={shiftPressed}
-          points={drawingState.pen.points}
+          freehandPoints={drawingState.freehand.points}
+          vectorPenPoints={drawingState.vectorPen.points}
+          vectorPenClosed={drawingState.vectorPen.closed}
+          activeVectorDraftPointIndex={drawingState.vectorPen.draggingPointIndex}
         />
         {selectionBox && (
           <rect

@@ -8,6 +8,28 @@ import {
   getShapeAtPoint,
   getBounds,
 } from "../utils/canvasUtils";
+import { getVectorSegmentHit } from "../utils/vectorPath";
+
+const VECTOR_HIT_RADIUS = 8;
+
+const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+const getVectorControlHit = (shape, point) => {
+  if (!shape || shape.type !== "vectorPen") return null;
+  for (let i = 0; i < shape.points.length; i += 1) {
+    const anchor = shape.points[i];
+    if (distance(anchor, point) <= VECTOR_HIT_RADIUS) {
+      return { pointIndex: i, handle: "anchor" };
+    }
+    if (anchor.inHandle && distance(anchor.inHandle, point) <= VECTOR_HIT_RADIUS) {
+      return { pointIndex: i, handle: "inHandle" };
+    }
+    if (anchor.outHandle && distance(anchor.outHandle, point) <= VECTOR_HIT_RADIUS) {
+      return { pointIndex: i, handle: "outHandle" };
+    }
+  }
+  return null;
+};
 
 const useCanvas = (mode) => {
   const [hoverDimensions, setHoverDimensions] = useState(null);
@@ -15,7 +37,8 @@ const useCanvas = (mode) => {
 
   // Consolidated drawing state
   const [drawingState, setDrawingState] = useState({
-    pen: { points: [] },
+    freehand: { points: [] },
+    vectorPen: { points: [], closed: false, draggingPointIndex: null },
     rect: { start: null, current: null },
     line: { start: null, current: null },
     circle: { start: null, current: null },
@@ -39,6 +62,8 @@ const useCanvas = (mode) => {
   const [isSelecting, setIsSelecting] = useState(false);
   const [editingTextIndex, setEditingTextIndex] = useState(null);
   const [editingTextValue, setEditingTextValue] = useState("");
+  const [vectorEditDrag, setVectorEditDrag] = useState(null);
+  const [activeVectorPoint, setActiveVectorPoint] = useState(null);
 
   const getDefaultShapeName = (type, currentShapes) => {
     const prefix = type === 'rectangle'
@@ -49,7 +74,9 @@ const useCanvas = (mode) => {
       ? 'line'
       : type === 'text'
       ? 'text'
-      : 'pen';
+      : type === 'vectorPen'
+      ? 'vectorPath'
+      : 'freehand';
     const count = currentShapes.filter((shape) => shape.type === type).length + 1;
     return `${prefix}${count}`;
   };
@@ -87,15 +114,93 @@ const useCanvas = (mode) => {
     if (isSelecting) return;
     if (mode === "select") return;
     const { x, y } = getCoords(e);
+
+    if (mode === "vectorPen") {
+      const activeVectorShapeIndex = selectedShapeIndices.length === 1 ? selectedShapeIndices[0] : null;
+      const activeVectorShape = activeVectorShapeIndex !== null ? shapes[activeVectorShapeIndex] : null;
+      const controlHit = getVectorControlHit(activeVectorShape, { x, y });
+
+      if (controlHit) {
+        setActiveVectorPoint({ shapeIndex: activeVectorShapeIndex, pointIndex: controlHit.pointIndex });
+        setVectorEditDrag({
+          shapeIndex: activeVectorShapeIndex,
+          pointIndex: controlHit.pointIndex,
+          handle: controlHit.handle,
+          lastPosition: { x, y },
+        });
+        return;
+      }
+
+      if (activeVectorShape) {
+        const segmentHit = getVectorSegmentHit(activeVectorShape, { x, y }, Math.max((activeVectorShape.strokeWidth || 2) / 2, VECTOR_HIT_RADIUS));
+        if (segmentHit && !segmentHit.isClosing) {
+          const insertedPoint = { x: segmentHit.point.x, y: segmentHit.point.y, inHandle: null, outHandle: null };
+          setShapes((prevShapes) =>
+            prevShapes.map((shape, index) => {
+              if (index !== activeVectorShapeIndex || shape.type !== "vectorPen") return shape;
+              const nextPoints = [...shape.points];
+              nextPoints.splice(segmentHit.segmentIndex + 1, 0, insertedPoint);
+              return { ...shape, points: nextPoints };
+            })
+          );
+          setVectorEditDrag({
+            shapeIndex: activeVectorShapeIndex,
+            pointIndex: segmentHit.segmentIndex + 1,
+            handle: "anchor",
+            lastPosition: { x, y },
+          });
+          setActiveVectorPoint({ shapeIndex: activeVectorShapeIndex, pointIndex: segmentHit.segmentIndex + 1 });
+          return;
+        }
+      }
+
+      const hitShapeIndex = getShapeAtPoint(shapes, x, y);
+      if (hitShapeIndex !== null && shapes[hitShapeIndex]?.type === "vectorPen") {
+        setSelectedShapeIndices([hitShapeIndex]);
+        setActiveVectorPoint({ shapeIndex: hitShapeIndex, pointIndex: 0 });
+        return;
+      }
+
+      const points = [...drawingState.vectorPen.points];
+      if (points.length >= 3 && distance(points[0], { x, y }) <= VECTOR_HIT_RADIUS) {
+        const newShape = {
+          type: "vectorPen",
+          name: getDefaultShapeName("vectorPen", shapes),
+          points,
+          closed: true,
+          strokeColor: "#000000",
+          fillColor: "transparent",
+          strokeWidth: 2,
+        };
+        saveToHistory([...shapes, newShape]);
+        setDrawingState((prev) => ({ ...prev, vectorPen: { points: [], closed: false, draggingPointIndex: null } }));
+        return;
+      }
+
+      setIsDrawing(true);
+      const nextPoints = [...points, { x, y, inHandle: null, outHandle: null }];
+      setDrawingState((prev) => ({
+        ...prev,
+        vectorPen: {
+          points: nextPoints,
+          closed: false,
+          draggingPointIndex: nextPoints.length - 1,
+        },
+      }));
+      setActiveVectorPoint(null);
+      return;
+    }
+
     setIsDrawing(true);
     setDrawingState(prev => ({
       ...prev,
-      [mode]: mode === "pen" ? { points: [{ x, y }] } : { start: { x, y }, current: { x, y } },
+      [mode]: mode === "freehand" ? { points: [{ x, y }] } : { start: { x, y }, current: { x, y } },
     }));
   };
 
   const handleCanvasMouseDownCapture = (e) => {
     if (mode !== "select") return;
+    if (e.target.dataset?.vectorControl === "true") return;
     if (e.target.tagName?.toLowerCase() === 'circle') return; // Ignore resize handles
     const { x, y } = getCoords(e);
     const hitShapeIndex = getShapeAtPoint(shapes, x, y);
@@ -116,6 +221,49 @@ const useCanvas = (mode) => {
       setHoverDimensions(null);
     }
   };
+
+  const handleVectorPointMouseDown = useCallback((e, shapeIndex, pointIndex, handle = "anchor") => {
+    if (mode !== "select" && mode !== "vectorPen") return;
+    e.stopPropagation();
+    const shape = shapes[shapeIndex];
+    if (!shape || shape.type !== "vectorPen") return;
+
+    setSelectedShapeIndices([shapeIndex]);
+    setActiveVectorPoint({ shapeIndex, pointIndex });
+    const { x, y } = getCoords(e);
+    setVectorEditDrag({
+      shapeIndex,
+      pointIndex,
+      handle,
+      lastPosition: { x, y },
+    });
+  }, [mode, shapes]);
+
+  const handleVectorPointDoubleClick = useCallback((e, shapeIndex, pointIndex) => {
+    if (mode !== "select" && mode !== "vectorPen") return;
+    e.stopPropagation();
+    const updatedShapes = shapes.map((shape, index) => {
+      if (index !== shapeIndex || shape.type !== "vectorPen") return shape;
+      const points = shape.points.map((point) => ({ ...point }));
+      const target = points[pointIndex];
+      if (!target) return shape;
+
+      const hasHandles = Boolean(target.inHandle || target.outHandle);
+      if (hasHandles) {
+        points[pointIndex] = { ...target, inHandle: null, outHandle: null };
+      } else {
+        const offset = 35;
+        points[pointIndex] = {
+          ...target,
+          inHandle: { x: target.x - offset, y: target.y },
+          outHandle: { x: target.x + offset, y: target.y },
+        };
+      }
+      return { ...shape, points };
+    });
+    setActiveVectorPoint({ shapeIndex, pointIndex });
+    saveToHistory(updatedShapes);
+  }, [mode, saveToHistory, shapes]);
 
   const handleMouseMove = (e) => {
     const { x, y } = getCoords(e);
@@ -145,12 +293,64 @@ const useCanvas = (mode) => {
       return;
     }
 
+    if (vectorEditDrag) {
+      setShapes((prevShapes) =>
+        prevShapes.map((shape, index) => {
+          if (index !== vectorEditDrag.shapeIndex || shape.type !== "vectorPen") return shape;
+          const nextPoints = shape.points.map((point) => ({ ...point }));
+          const targetPoint = nextPoints[vectorEditDrag.pointIndex];
+          const dx = x - vectorEditDrag.lastPosition.x;
+          const dy = y - vectorEditDrag.lastPosition.y;
+
+          if (vectorEditDrag.handle === "anchor") {
+            targetPoint.x = x;
+            targetPoint.y = y;
+            if (targetPoint.inHandle) {
+              targetPoint.inHandle = { x: targetPoint.inHandle.x + dx, y: targetPoint.inHandle.y + dy };
+            }
+            if (targetPoint.outHandle) {
+              targetPoint.outHandle = { x: targetPoint.outHandle.x + dx, y: targetPoint.outHandle.y + dy };
+            }
+          } else {
+            targetPoint[vectorEditDrag.handle] = { x, y };
+            if (!altPressed) {
+              const oppositeKey = vectorEditDrag.handle === "inHandle" ? "outHandle" : "inHandle";
+              targetPoint[oppositeKey] = {
+                x: (2 * targetPoint.x) - x,
+                y: (2 * targetPoint.y) - y,
+              };
+            }
+          }
+
+          return { ...shape, points: nextPoints };
+        })
+      );
+      setVectorEditDrag((prev) => (prev ? { ...prev, lastPosition: { x, y } } : prev));
+      return;
+    }
+
     if (!isDrawing) return;
 
     setDrawingState(prev => {
       const newState = { ...prev };
-      if (mode === "pen") {
-        newState.pen.points = [...newState.pen.points, { x, y }];
+      if (mode === "freehand") {
+        newState.freehand.points = [...newState.freehand.points, { x, y }];
+      } else if (mode === "vectorPen") {
+        const dragIndex = newState.vectorPen.draggingPointIndex;
+        if (dragIndex !== null && newState.vectorPen.points[dragIndex]) {
+          const anchor = newState.vectorPen.points[dragIndex];
+          if (altPressed) {
+            newState.vectorPen.points[dragIndex] = {
+              ...anchor,
+              inHandle: { x, y },
+              outHandle: anchor.outHandle || null,
+            };
+          } else {
+            const inHandle = { x, y };
+            const outHandle = { x: anchor.x * 2 - x, y: anchor.y * 2 - y };
+            newState.vectorPen.points[dragIndex] = { ...anchor, inHandle, outHandle };
+          }
+        }
       } else {
         newState[mode].current = { x, y };
       }
@@ -223,18 +423,29 @@ const useCanvas = (mode) => {
     setIsResizing(false);
     setHoverDimensions(null);
 
+    if (vectorEditDrag) {
+      saveToHistory(shapes);
+      setVectorEditDrag(null);
+      return;
+    }
+
     const ds = drawingState;
-    if (mode === "pen" && ds.pen.points.length) {
+    if (mode === "freehand" && ds.freehand.points.length) {
       const newShape = {
-        type: "pen",
-        name: getDefaultShapeName('pen', shapes),
-        points: ds.pen.points,
+        type: "freehand",
+        name: getDefaultShapeName('freehand', shapes),
+        points: ds.freehand.points,
         strokeColor: '#000000',
         fillColor: 'transparent',
         strokeWidth: 2,
       };
       saveToHistory([...shapes, newShape]);
-      setDrawingState(prev => ({ ...prev, pen: { points: [] } }));
+      setDrawingState(prev => ({ ...prev, freehand: { points: [] } }));
+    } else if (mode === "vectorPen") {
+      setDrawingState(prev => ({
+        ...prev,
+        vectorPen: { ...prev.vectorPen, draggingPointIndex: null },
+      }));
     } else if (mode === "rect" && ds.rect.start && ds.rect.current) {
       const newShape = {
         type: "rectangle",
@@ -320,6 +531,11 @@ const useCanvas = (mode) => {
     e.stopPropagation();
     const rect = e.currentTarget.ownerSVGElement.getBoundingClientRect();
     setSelectedShapeIndices([i]);
+    if (shapes[i]?.type === "vectorPen") {
+      setActiveVectorPoint({ shapeIndex: i, pointIndex: 0 });
+    } else {
+      setActiveVectorPoint(null);
+    }
     setIsDragging(true);
     setDragStart({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   };
@@ -374,7 +590,15 @@ const useCanvas = (mode) => {
     }
     setIsDragging(false);
     setIsResizing(false);
-  }, []);
+    const selectedIndex = Array.isArray(indexOrIndices)
+      ? (indexOrIndices.length ? indexOrIndices[0] : null)
+      : indexOrIndices;
+    if (selectedIndex !== null && shapes[selectedIndex]?.type === "vectorPen") {
+      setActiveVectorPoint({ shapeIndex: selectedIndex, pointIndex: 0 });
+    } else {
+      setActiveVectorPoint(null);
+    }
+  }, [shapes]);
 
   const renameShape = useCallback((index, name) => {
     const updatedShapes = shapes.map((shape, i) =>
@@ -456,6 +680,27 @@ const useCanvas = (mode) => {
         setShiftPressed(true);
       }
 
+      if (mode === "vectorPen" && e.key === "Enter" && drawingState.vectorPen.points.length > 1) {
+        e.preventDefault();
+        const newShape = {
+          type: "vectorPen",
+          name: getDefaultShapeName("vectorPen", shapes),
+          points: drawingState.vectorPen.points,
+          closed: drawingState.vectorPen.closed,
+          strokeColor: "#000000",
+          fillColor: "transparent",
+          strokeWidth: 2,
+        };
+        saveToHistory([...shapes, newShape]);
+        setDrawingState((prev) => ({ ...prev, vectorPen: { points: [], closed: false, draggingPointIndex: null } }));
+        return;
+      }
+      if (mode === "vectorPen" && e.key === "Escape" && drawingState.vectorPen.points.length) {
+        e.preventDefault();
+        setDrawingState((prev) => ({ ...prev, vectorPen: { points: [], closed: false, draggingPointIndex: null } }));
+        return;
+      }
+
       if (selectedShapeIndices.length > 0) {
         const moveAmount = 5;
         let dx = 0, dy = 0;
@@ -505,7 +750,7 @@ const useCanvas = (mode) => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [selectedShapeIndices, shapes, undo, redo, saveToHistory, moveShapeBackward, moveShapeForward]);
+  }, [selectedShapeIndices, shapes, undo, redo, saveToHistory, moveShapeBackward, moveShapeForward, mode, drawingState.vectorPen]);
 
   const onShapeUpdate = useCallback((updatedShape) => {
     const updatedShapes = shapes.reduce((result, shape, i) => {
@@ -526,6 +771,7 @@ const useCanvas = (mode) => {
 
   const clearSelection = useCallback(() => {
     setSelectedShapeIndices([]);
+    setActiveVectorPoint(null);
   }, []);
 
   return {
@@ -558,6 +804,9 @@ const useCanvas = (mode) => {
     hoveredShapeIndex,
     setHoveredShapeIndex,
     selectionBox,
+    activeVectorPoint,
+    handleVectorPointMouseDown,
+    handleVectorPointDoubleClick,
   };
 };
 

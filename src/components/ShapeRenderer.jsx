@@ -3,8 +3,20 @@ import Line from "./shapes/Line";
 import Circle from "./shapes/Circle";
 import Pen from "./shapes/Pen";
 import TextShape from "./shapes/Text";
+import VectorPen from "./shapes/VectorPen";
 
-const ShapeRenderer = ({ shape, i, selectedShapeIndices, handleSelect, handleResizeStart, setHoveredShapeIndex, handleTextEdit }) => {
+const ShapeRenderer = ({
+  shape,
+  i,
+  selectedShapeIndices,
+  handleSelect,
+  handleResizeStart,
+  setHoveredShapeIndex,
+  handleTextEdit,
+  activeVectorPoint,
+  onVectorPointMouseDown,
+  onVectorPointDoubleClick,
+}) => {
   const commonProps = {
     shape,
     isSelected: selectedShapeIndices.includes(i),
@@ -22,9 +34,21 @@ const ShapeRenderer = ({ shape, i, selectedShapeIndices, handleSelect, handleRes
       return <Line key={i} {...commonProps} />;
     case "circle":
       return <Circle key={i} {...commonProps} />;
-    case "pen":
-      return <Pen key={i} {...commonProps} />;    case "text":
-      return <TextShape key={i} {...commonProps} onTextEdit={() => handleTextEdit(i)} />;    default:
+    case "freehand":
+      return <Pen key={i} {...commonProps} />;
+    case "vectorPen":
+      return (
+        <VectorPen
+          key={i}
+          {...commonProps}
+          activePointIndex={activeVectorPoint?.shapeIndex === i ? activeVectorPoint.pointIndex : null}
+          onVectorPointMouseDown={(e, pointIndex, handle) => onVectorPointMouseDown(e, i, pointIndex, handle)}
+          onVectorPointDoubleClick={(e, pointIndex) => onVectorPointDoubleClick(e, i, pointIndex)}
+        />
+      );
+    case "text":
+      return <TextShape key={i} {...commonProps} onTextEdit={() => handleTextEdit(i)} />;
+    default:
       return null;
   }
 };
