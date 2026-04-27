@@ -35,6 +35,9 @@ export const updateShapeForDrag = (shape, dx, dy) => {
   if (shape.type === 'text') {
     return { ...shape, x: shape.x + dx, y: shape.y + dy };
   }
+  if (shape.type === "image") {
+    return { ...shape, x: shape.x + dx, y: shape.y + dy };
+  }
   if (shape.type === "freehand") {
     return {
       ...shape,
@@ -56,7 +59,7 @@ export const updateShapeForDrag = (shape, dx, dy) => {
   return shape;
 };
 
-export const updateShapeForResize = (shape, x, y, resizeCorner) => {
+export const updateShapeForResize = (shape, x, y, resizeCorner, keepAspectRatio = false) => {
   if (shape.type === "rectangle") {
     const { start, end } = shape;
     const currentLeft = Math.min(start.x, end.x);
@@ -101,6 +104,39 @@ export const updateShapeForResize = (shape, x, y, resizeCorner) => {
     const radiusY = Math.max(0, Math.abs(y - shape.center.y));
     return { ...shape, radiusX, radiusY };
   }
+  if (shape.type === "image") {
+    const baseAspect = shape.aspectRatio || (shape.width > 0 ? shape.width / Math.max(shape.height, 1) : 1);
+    const applyAspect = (draft) => {
+      if (!keepAspectRatio) return draft;
+      if (draft.width / Math.max(draft.height, 1) > baseAspect) {
+        draft.width = Math.max(5, draft.height * baseAspect);
+      } else {
+        draft.height = Math.max(5, draft.width / Math.max(baseAspect, 0.0001));
+      }
+      return draft;
+    };
+
+    if (resizeCorner === 0) {
+      const right = shape.x + shape.width;
+      const bottom = shape.y + shape.height;
+      const next = applyAspect({ x, y, width: Math.max(5, right - x), height: Math.max(5, bottom - y) });
+      return { ...shape, x: right - next.width, y: bottom - next.height, width: next.width, height: next.height };
+    }
+    if (resizeCorner === 1) {
+      const bottom = shape.y + shape.height;
+      const next = applyAspect({ x: shape.x, y, width: Math.max(5, x - shape.x), height: Math.max(5, bottom - y) });
+      return { ...shape, y: bottom - next.height, width: next.width, height: next.height };
+    }
+    if (resizeCorner === 2) {
+      const right = shape.x + shape.width;
+      const next = applyAspect({ x, y: shape.y, width: Math.max(5, right - x), height: Math.max(5, y - shape.y) });
+      return { ...shape, x: right - next.width, width: next.width, height: next.height };
+    }
+    if (resizeCorner === 3) {
+      const next = applyAspect({ x: shape.x, y: shape.y, width: Math.max(5, x - shape.x), height: Math.max(5, y - shape.y) });
+      return { ...shape, width: next.width, height: next.height };
+    }
+  }
   return shape;
 };
 
@@ -142,6 +178,9 @@ export const getBounds = (shape) => {
     const x = shape.x + (shape.textAlign === 'center' ? -width / 2 : shape.textAlign === 'right' ? -width : 0);
     const y = shape.y - height * 0.8;
     return { left: x, top: y, right: x + width, bottom: y + height };
+  }
+  if (shape.type === "image") {
+    return { left: shape.x, top: shape.y, right: shape.x + shape.width, bottom: shape.y + shape.height };
   }
   return { left: 0, top: 0, right: 0, bottom: 0 };
 };
@@ -261,6 +300,8 @@ export const getShapeAtPoint = (shapes, x, y) => {
     } else if (shape.type === "text") {
       const bounds = getBounds(shape);
       if (x >= bounds.left && x <= bounds.right && y >= bounds.top && y <= bounds.bottom) return i;
+    } else if (shape.type === "image") {
+      if (x >= shape.x && x <= shape.x + shape.width && y >= shape.y && y <= shape.y + shape.height) return i;
     }
   }
   return null;

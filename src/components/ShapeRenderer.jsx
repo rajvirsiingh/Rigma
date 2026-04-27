@@ -4,6 +4,7 @@ import Circle from "./shapes/Circle";
 import Pen from "./shapes/Pen";
 import TextShape from "./shapes/Text";
 import VectorPen from "./shapes/VectorPen";
+import ImageShape from "./shapes/ImageShape";
 
 const ShapeRenderer = ({
   shape,
@@ -48,6 +49,8 @@ const ShapeRenderer = ({
       );
     case "text":
       return <TextShape key={i} {...commonProps} onTextEdit={() => handleTextEdit(i)} />;
+    case "image":
+      return <ImageShape key={i} {...commonProps} />;
     default:
       return null;
   }

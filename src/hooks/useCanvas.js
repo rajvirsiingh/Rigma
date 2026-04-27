@@ -74,6 +74,8 @@ const useCanvas = (mode) => {
       ? 'line'
       : type === 'text'
       ? 'text'
+      : type === 'image'
+      ? 'image'
       : type === 'vectorPen'
       ? 'vectorPath'
       : 'freehand';
@@ -281,7 +283,7 @@ const useCanvas = (mode) => {
           !selectedShapeIndices.includes(i)
             ? shape
             : isResizing
-            ? updateShapeForResize(shape, x, y, resizeCorner)
+            ? updateShapeForResize(shape, x, y, resizeCorner, shiftPressed)
             : updateShapeForDrag(shape, dx, dy)
         )
       );
@@ -774,6 +776,48 @@ const useCanvas = (mode) => {
     setActiveVectorPoint(null);
   }, []);
 
+  const addImageShape = useCallback((file) => {
+    if (!file) return Promise.resolve();
+
+    const readAsDataUrl = new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    return readAsDataUrl.then((dataUrl) => new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxWidth = 420;
+        const maxHeight = 320;
+        const scale = Math.min(maxWidth / img.naturalWidth, maxHeight / img.naturalHeight, 1);
+        const width = Math.max(20, Math.round(img.naturalWidth * scale));
+        const height = Math.max(20, Math.round(img.naturalHeight * scale));
+        const newShape = {
+          id: `image-${Date.now()}-${Math.round(Math.random() * 100000)}`,
+          type: "image",
+          name: getDefaultShapeName("image", shapes),
+          x: 80,
+          y: 80,
+          width,
+          height,
+          originalWidth: img.naturalWidth,
+          originalHeight: img.naturalHeight,
+          aspectRatio: img.naturalWidth / Math.max(img.naturalHeight, 1),
+          crop: { x: 0, y: 0, width: 1, height: 1 },
+          href: dataUrl,
+        };
+        const newShapes = [...shapes, newShape];
+        saveToHistory(newShapes);
+        setSelectedShapeIndices([newShapes.length - 1]);
+        resolve();
+      };
+      img.onerror = reject;
+      img.src = dataUrl;
+    }));
+  }, [saveToHistory, shapes]);
+
   return {
     shapes,
     hoverDimensions,
@@ -807,6 +851,7 @@ const useCanvas = (mode) => {
     activeVectorPoint,
     handleVectorPointMouseDown,
     handleVectorPointDoubleClick,
+    addImageShape,
   };
 };
 

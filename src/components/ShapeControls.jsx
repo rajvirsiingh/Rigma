@@ -35,6 +35,17 @@ const ShapeControls = ({ selectedShape, onShapeUpdate }) => {
         rotation: selectedShape.rotation || 0,
         fillColor: selectedShape.fillColor || '#000000',
       };
+    } else if (selectedShape.type === 'image') {
+      const crop = selectedShape.crop || { x: 0, y: 0, width: 1, height: 1 };
+      return {
+        ...baseProperties,
+        width: selectedShape.width || 0,
+        height: selectedShape.height || 0,
+        cropX: Math.round(crop.x * 100),
+        cropY: Math.round(crop.y * 100),
+        cropWidth: Math.round(crop.width * 100),
+        cropHeight: Math.round(crop.height * 100),
+      };
     } else {
       return baseProperties;
     }
@@ -95,6 +106,24 @@ const ShapeControls = ({ selectedShape, onShapeUpdate }) => {
         ...updatedShape,
         [property]: value,
       };
+    } else if (selectedShape.type === "image" && (property === "width" || property === "height")) {
+      updatedShape = {
+        ...updatedShape,
+        [property]: Math.max(1, value),
+      };
+    } else if (selectedShape.type === "image" && ["cropX", "cropY", "cropWidth", "cropHeight"].includes(property)) {
+      const nextCrop = {
+        x: Math.max(0, Math.min(99, property === "cropX" ? value : properties.cropX)) / 100,
+        y: Math.max(0, Math.min(99, property === "cropY" ? value : properties.cropY)) / 100,
+        width: Math.max(1, Math.min(100, property === "cropWidth" ? value : properties.cropWidth)) / 100,
+        height: Math.max(1, Math.min(100, property === "cropHeight" ? value : properties.cropHeight)) / 100,
+      };
+      nextCrop.width = Math.min(nextCrop.width, 1 - nextCrop.x);
+      nextCrop.height = Math.min(nextCrop.height, 1 - nextCrop.y);
+      updatedShape = {
+        ...updatedShape,
+        crop: nextCrop,
+      };
     }
 
     onShapeUpdate(updatedShape);
@@ -112,27 +141,31 @@ const ShapeControls = ({ selectedShape, onShapeUpdate }) => {
   return (
     <div className={styles.controls}>
       <h3>Shape Properties</h3>
-      <div className={styles.propertyGroup}>
-        <label>
-          Stroke Color:
-          <input
-            type="color"
-            value={properties.strokeColor}
-            onChange={(e) => handlePropertyChange('strokeColor', e.target.value)}
-          />
-        </label>
-      </div>
+      {selectedShape.type !== "image" && (
+        <>
+          <div className={styles.propertyGroup}>
+            <label>
+              Stroke Color:
+              <input
+                type="color"
+                value={properties.strokeColor}
+                onChange={(e) => handlePropertyChange('strokeColor', e.target.value)}
+              />
+            </label>
+          </div>
 
-      <div className={styles.propertyGroup}>
-        <label>
-          Fill Color:
-          <input
-            type="color"
-            value={properties.fillColor}
-            onChange={(e) => handlePropertyChange('fillColor', e.target.value)}
-          />
-        </label>
-      </div>
+          <div className={styles.propertyGroup}>
+            <label>
+              Fill Color:
+              <input
+                type="color"
+                value={properties.fillColor}
+                onChange={(e) => handlePropertyChange('fillColor', e.target.value)}
+              />
+            </label>
+          </div>
+        </>
+      )}
 
       {selectedShape.type === 'text' ? (
         <>
@@ -198,6 +231,84 @@ const ShapeControls = ({ selectedShape, onShapeUpdate }) => {
                 onChange={(e) => handlePropertyChange('rotation', parseInt(e.target.value) || 0)}
               />
             </label>
+          </div>
+        </>
+      ) : selectedShape.type === "image" ? (
+        <>
+          <div className={styles.propertyGroup}>
+            <label>
+              Width:
+              <input
+                type="number"
+                min="1"
+                value={properties.width}
+                onChange={(e) => handlePropertyChange('width', parseInt(e.target.value, 10) || 1)}
+              />
+            </label>
+          </div>
+          <div className={styles.propertyGroup}>
+            <label>
+              Height:
+              <input
+                type="number"
+                min="1"
+                value={properties.height}
+                onChange={(e) => handlePropertyChange('height', parseInt(e.target.value, 10) || 1)}
+              />
+            </label>
+          </div>
+          <div className={styles.propertyGroup}>
+            <h4>Crop</h4>
+            <label>
+              Left:
+              <input
+                type="range"
+                min="0"
+                max="99"
+                value={properties.cropX}
+                onChange={(e) => handlePropertyChange('cropX', parseInt(e.target.value, 10) || 0)}
+              />
+              <span>{properties.cropX}%</span>
+            </label>
+            <label>
+              Top:
+              <input
+                type="range"
+                min="0"
+                max="99"
+                value={properties.cropY}
+                onChange={(e) => handlePropertyChange('cropY', parseInt(e.target.value, 10) || 0)}
+              />
+              <span>{properties.cropY}%</span>
+            </label>
+            <label>
+              Width:
+              <input
+                type="range"
+                min="1"
+                max="100"
+                value={properties.cropWidth}
+                onChange={(e) => handlePropertyChange('cropWidth', parseInt(e.target.value, 10) || 1)}
+              />
+              <span>{properties.cropWidth}%</span>
+            </label>
+            <label>
+              Height:
+              <input
+                type="range"
+                min="1"
+                max="100"
+                value={properties.cropHeight}
+                onChange={(e) => handlePropertyChange('cropHeight', parseInt(e.target.value, 10) || 1)}
+              />
+              <span>{properties.cropHeight}%</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => onShapeUpdate({ ...selectedShape, crop: { x: 0, y: 0, width: 1, height: 1 } })}
+            >
+              Reset Crop
+            </button>
           </div>
         </>
       ) : (

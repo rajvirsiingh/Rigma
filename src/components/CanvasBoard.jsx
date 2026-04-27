@@ -30,6 +30,7 @@ const CanvasBoard = ({
   activeVectorPoint,
   handleVectorPointMouseDown,
   handleVectorPointDoubleClick,
+  onSvgReady,
 }) => {
   const svgRef = useRef();
   const inputRef = useRef(null);
@@ -53,6 +54,12 @@ const CanvasBoard = ({
     window.addEventListener('resize', updateDimensions);
     return () => window.removeEventListener('resize', updateDimensions);
   }, []);
+
+  useEffect(() => {
+    if (onSvgReady) {
+      onSvgReady(svgRef.current);
+    }
+  }, [onSvgReady]);
 
   const renderDistanceGuides = () => {
     if (!altPressed || selectedShapeIndices.length === 0) return null;
