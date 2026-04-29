@@ -70,6 +70,10 @@ body{
   position: relative;
 }
 
+.load-menu-wrapper {
+  position: relative;
+}
+
 .download-menu {
   position: absolute;
   top: calc(100% + 6px);
@@ -84,6 +88,77 @@ body{
   z-index: 100;
 }
 
+.load-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 280px;
+  max-height: 360px;
+  overflow: auto;
+  background: #1f1f1f;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  z-index: 110;
+}
+
+.load-option-basic {
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  color: #f5f5f5;
+  text-align: left;
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.load-option-basic:hover {
+  background: #353535;
+}
+
+.load-option-card {
+  border: 1px solid #3a3a3a;
+  background: #252525;
+  color: #f5f5f5;
+  border-radius: 8px;
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.load-option-card:hover {
+  background: #2f2f2f;
+}
+
+.drawing-thumbnail {
+  width: 100%;
+  height: 96px;
+  background: #ffffff;
+  border-radius: 6px;
+  border: 1px solid #d0d0d0;
+}
+
+.load-option-name {
+  text-align: left;
+  font-size: 0.82rem;
+  color: #f0f0f0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.load-empty {
+  font-size: 0.8rem;
+  color: #b5b5b5;
+  padding: 8px 4px;
+}
+
 .download-option {
   background: transparent;
   border: none;
@@ -96,6 +171,27 @@ body{
 
 .download-option:hover {
   background: #2f2f2f;
+}
+
+.status-message {
+  font-size: 0.8rem;
+  padding: 7px 10px;
+  border-radius: 6px;
+}
+
+.status-success {
+  background: rgba(18, 123, 74, 0.2);
+  color: #89f3bf;
+}
+
+.status-error {
+  background: rgba(167, 58, 63, 0.2);
+  color: #ffb3b6;
+}
+
+.status-info {
+  background: rgba(63, 104, 163, 0.2);
+  color: #bad8ff;
 }
 
 .main-content {

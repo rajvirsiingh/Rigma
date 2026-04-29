@@ -26,7 +26,6 @@ const CanvasBoard = ({
   hoveredShapeIndex,
   setHoveredShapeIndex,
   selectionBox,
-  mode,
   activeVectorPoint,
   handleVectorPointMouseDown,
   handleVectorPointDoubleClick,
