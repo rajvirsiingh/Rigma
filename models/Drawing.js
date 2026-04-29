@@ -5,6 +5,7 @@ const drawingSchema = new mongoose.Schema({
     type: String,
     trim: true,
     required: true,
+    unique: true,
   },
   shapes: Array, // store your shapes array directly
 }, { timestamps: true });
