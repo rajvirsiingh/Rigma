@@ -43,6 +43,20 @@ body{
   background: #333333;
 }
 
+.file-name-input {
+  border: 1px solid #3a3a3a;
+  background: #1f1f1f;
+  color: #f5f5f5;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  min-width: 180px;
+}
+
+.file-name-input::placeholder {
+  color: #9a9a9a;
+}
+
 .icon-button {
   width: 36px;
   height: 36px;

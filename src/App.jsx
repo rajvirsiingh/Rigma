@@ -14,8 +14,14 @@ function App() {
   const canvasData = useCanvas(mode)
   const imageInputRef = useRef(null)
   const svgElementRef = useRef(null)
+  const hasLoadedInitialDrawingRef = useRef(false)
   const [downloadMenuOpen, setDownloadMenuOpen] = useState(false)
   const downloadMenuRef = useRef(null)
+  const [saveState, setSaveState] = useState({ type: 'idle', message: '' })
+  const [drawingName, setDrawingName] = useState('')
+
+  const API_BASE_URL =
+    (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api/drawings').trim()
 
   const handleModeChange = useCallback((newMode) => {
     setMode(newMode);
@@ -100,11 +106,158 @@ function App() {
     setDownloadMenuOpen(false);
   };
 
+  const getErrorMessage = async (response, fallbackMessage) => {
+    try {
+      const data = await response.json()
+      return data.message || fallbackMessage
+    } catch (_error) {
+      return fallbackMessage
+    }
+  }
+
+  const handleSaveShapes = async () => {
+    const validName = drawingName.trim()
+    if (!validName) {
+      setSaveState({ type: 'error', message: 'Enter a file name first' })
+      return
+    }
+
+    try {
+      setSaveState({ type: 'info', message: 'Saving...' })
+      const response = await fetch(`${API_BASE_URL}/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: validName, shapes: canvasData.shapes }),
+      })
+
+      if (!response.ok) {
+        const message = await getErrorMessage(response, 'Failed to save drawing')
+        throw new Error(message)
+      }
+
+      const data = await response.json()
+      setSaveState({ type: 'success', message: `Saved "${data.name}"` })
+      localStorage.setItem('drawingId', data._id)
+      localStorage.setItem('drawingName', data.name)
+    } catch (error) {
+      console.error(error)
+      setSaveState({ type: 'error', message: error.message || 'Save failed' })
+    }
+  }
+
+  const handleSaveAsNew = async () => {
+    const validName = drawingName.trim()
+    if (!validName) {
+      setSaveState({ type: 'error', message: 'Enter a file name first' })
+      return
+    }
+
+    try {
+      setSaveState({ type: 'info', message: 'Saving as new...' })
+      const response = await fetch(`${API_BASE_URL}/save-as`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: validName, shapes: canvasData.shapes }),
+      })
+
+      if (!response.ok) {
+        const message = await getErrorMessage(response, 'Failed to save drawing as new')
+        throw new Error(message)
+      }
+
+      const data = await response.json()
+      setSaveState({ type: 'success', message: `Saved new "${data.name}"` })
+      localStorage.setItem('drawingId', data._id)
+      localStorage.setItem('drawingName', data.name)
+    } catch (error) {
+      console.error(error)
+      setSaveState({ type: 'error', message: error.message || 'Save failed' })
+    }
+  }
+
+  const handleLoadShapes = async (drawingId) => {
+    try {
+      setSaveState({ type: 'info', message: 'Loading...' })
+      const endpoint = drawingId ? `${API_BASE_URL}/${drawingId}` : `${API_BASE_URL}/latest`
+      const response = await fetch(endpoint)
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          canvasData.replaceShapes([])
+          setSaveState({ type: 'info', message: 'No saved drawings yet' })
+          return
+        }
+        const message = await getErrorMessage(response, 'Failed to load drawing')
+        throw new Error(message)
+      }
+
+      const data = await response.json()
+      canvasData.replaceShapes(data.shapes || [])
+      setDrawingName(data.name || '')
+      localStorage.setItem('drawingId', data._id)
+      localStorage.setItem('drawingName', data.name || '')
+      setSaveState({ type: 'success', message: `Loaded "${data.name || data._id}"` })
+    } catch (error) {
+      console.error(error)
+      setSaveState({ type: 'error', message: error.message || 'Load failed' })
+    }
+  }
+
+  const handleLoadByName = async () => {
+    const validName = drawingName.trim()
+    if (!validName) {
+      setSaveState({ type: 'error', message: 'Enter a file name first' })
+      return
+    }
+
+    try {
+      setSaveState({ type: 'info', message: 'Loading...' })
+      const response = await fetch(`${API_BASE_URL}/name/${encodeURIComponent(validName)}`)
+
+      if (!response.ok) {
+        const message = await getErrorMessage(response, 'Failed to load drawing')
+        throw new Error(message)
+      }
+
+      const data = await response.json()
+      canvasData.replaceShapes(data.shapes || [])
+      setDrawingName(data.name || validName)
+      localStorage.setItem('drawingId', data._id)
+      localStorage.setItem('drawingName', data.name || validName)
+      setSaveState({ type: 'success', message: `Loaded "${data.name}"` })
+    } catch (error) {
+      console.error(error)
+      setSaveState({ type: 'error', message: error.message || 'Load failed' })
+    }
+  }
+
+  useEffect(() => {
+    if (hasLoadedInitialDrawingRef.current) return
+    hasLoadedInitialDrawingRef.current = true
+
+    const savedId = localStorage.getItem('drawingId')
+    const savedName = localStorage.getItem('drawingName') || ''
+    setDrawingName(savedName)
+    handleLoadShapes(savedId)
+  }, [])
+
   return (
     <div className="app">
       <div className="toolbar-container">
         <Toolbar onModeChange={handleModeChange} mode={mode} />
         <div className="action-bar">
+          <input
+            type="text"
+            className="file-name-input"
+            placeholder="File name"
+            value={drawingName}
+            onChange={(e) => setDrawingName(e.target.value)}
+          />
+          <button type="button" className="action-button" onClick={handleSaveShapes}>Save</button>
+          <button type="button" className="action-button" onClick={handleSaveAsNew}>Save As New</button>
+          <button type="button" className="action-button" onClick={handleLoadByName}>Load</button>
+          <button type="button" className="action-button" onClick={canvasData.undo} disabled={!canvasData.canUndo}>Undo</button>
+          <button type="button" className="action-button" onClick={canvasData.redo} disabled={!canvasData.canRedo}>Redo</button>
           <button type="button" className="action-button" onClick={handleImportImageClick}>Import Image</button>
           <div className="download-menu-wrapper" ref={downloadMenuRef}>
             <button
@@ -131,6 +284,9 @@ function App() {
             style={{ display: "none" }}
             onChange={handleImageFileChange}
           />
+          {saveState.message && (
+            <span className={`status-message status-${saveState.type}`}>{saveState.message}</span>
+          )}
         </div>
       </div>
       <div className="main-content">

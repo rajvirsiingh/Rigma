@@ -818,6 +818,15 @@ const useCanvas = (mode) => {
     }));
   }, [saveToHistory, shapes]);
 
+  const replaceShapes = useCallback((nextShapes) => {
+    const safeShapes = Array.isArray(nextShapes) ? nextShapes : [];
+    setShapes(safeShapes);
+    setHistory([safeShapes]);
+    setStep(0);
+    setSelectedShapeIndices([]);
+    setActiveVectorPoint(null);
+  }, []);
+
   return {
     shapes,
     hoverDimensions,
@@ -843,6 +852,11 @@ const useCanvas = (mode) => {
     moveShapeForward,
     moveShapeBackward,
     reorderShapes,
+    undo,
+    redo,
+    canUndo: step > 0,
+    canRedo: step < history.length - 1,
+    replaceShapes,
     altPressed,
     shiftPressed,
     hoveredShapeIndex,
